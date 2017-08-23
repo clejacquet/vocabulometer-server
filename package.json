@@ -1,0 +1,32 @@
+{
+  "name": "vocabnalyze-server",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./src/bin/www"
+  },
+  "dependencies": {
+    "bcrypt": "^1.0.2",
+    "bluebird": "^3.5.0",
+    "body-parser": "~1.17.1",
+    "cookie-parser": "~1.4.3",
+    "cookie-session": "^2.0.0-beta.2",
+    "cors": "^2.8.4",
+    "debug": "~2.6.3",
+    "ejs": "~2.5.6",
+    "express": "~4.15.2",
+    "express-jwt": "^5.3.0",
+    "jsonwebtoken": "^7.4.2",
+    "lex": "^1.7.9",
+    "mongoose": "^4.10.7",
+    "morgan": "~1.8.1",
+    "passport": "^0.3.2",
+    "passport-google-oauth": "^1.0.0",
+    "passport-http-bearer": "^1.0.1",
+    "passport-local": "^1.0.0",
+    "serve-favicon": "~2.4.2"
+  },
+  "engines": {
+    "node": "6.11.0"
+  }
+}
