@@ -11,6 +11,7 @@ gulp.task('launch', () => {
 	});
 });
 
+// Just a test comment
 gulp.task('deploy', () => {
 	exec('git rebase master heroku', (err, stdout, stderr) => {
 		console.log(stdout);
