@@ -17,7 +17,7 @@ const authPath = [
 module.exports = (cb) => {
 	// HTTP UTILS MIDDLEWARES LOADING
 
-	const publicDirectory = '../../vocabnalyze-client/dist';
+	const publicDirectory = '../dist';
 
 	app.use(favicon(path.join(__dirname, publicDirectory, 'favicon.ico')));
 	app.use(logger('dev'));
