@@ -17,6 +17,10 @@ gulp.task('deploy', () => {
 		console.log(stderr);
 		
 		if (err) {
+			console.log('==> Error while deploying, coming back to master branch!');
+			git.checkout('master', (err) => {
+				if (err) throw err;
+			});
 			return;
 		}
 
@@ -27,7 +31,7 @@ gulp.task('deploy', () => {
 				if (err) throw err;
 
 				console.log('Vocabulometer successfully deployed on Heroku!');
-			})
+			});
 		})
 	})
 });
