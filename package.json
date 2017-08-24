@@ -25,5 +25,13 @@
     "passport-http-bearer": "^1.0.1",
     "passport-local": "^1.0.0",
     "serve-favicon": "~2.4.2"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-git": "^2.4.2",
+    "gulp-nodemon": "^2.2.1"
+  },
+  "engines": {
+    "node": "8.4.0"
   }
 }
