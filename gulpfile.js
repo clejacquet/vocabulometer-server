@@ -20,7 +20,7 @@ gulp.task('deploy', () => {
 			return;
 		}
 
-		git.push('heroku', 'master', (err) => {
+		git.push('heroku', 'master', { args: '-f' }, (err) => {
 			if (err) throw err;
 
 			git.checkout('master', (err) => {
