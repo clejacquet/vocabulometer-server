@@ -21,16 +21,27 @@ function getTextOnPage(model, page, cb) {
 module.exports = (passport) => {
 	router.get('/', passport.isLoggedIn, (req, res, next) => {
 		const page = parseInt(req.query.page);
-		getTextOnPage(req.models.texts, page, (err, result) => {
+
+		req.models.texts.count((err, count) => {
 			if (err) {
 				return next(err);
 			}
 
-			res.status(200);
-			res.json({
-				texts: result
+			const lastPage = Math.ceil(count / 20) - 1;
+
+			getTextOnPage(req.models.texts, page, (err, result) => {
+				if (err) {
+					return next(err);
+				}
+
+				res.status(200);
+				res.json({
+					lastPage: lastPage,
+					texts: result
+				});
 			});
 		});
+
 	});
 
 	router.get('/last', passport.isLoggedIn, (req, res, next) => {
@@ -47,7 +58,7 @@ module.exports = (passport) => {
 
 				res.status(200);
 				res.json({
-					page: page,
+					lastPage: page,
 					texts: result
 				});
 			});
