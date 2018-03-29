@@ -27,7 +27,9 @@ module.exports = (mongoose, models) => {
 		id: Number,
 		text: {
 			title: String,
-			body: mongoose.Schema.Types.Mixed
+			body: String,
+			words: [String],
+			source: String
 		}
 	});
 
@@ -36,10 +38,15 @@ module.exports = (mongoose, models) => {
 	};
 
 	textSchema.statics.loadAndCreateText = function (title, text, cb) {
+        const words = wordTokenizer
+			.tokenize(text)
+			.filter((word) => !natural.stopwords.includes(word));
+
 		this.create({
 			text: {
 				title: title,
 				body: text,
+				words: words,
 				source: 'BBC'
 			}
 		}, (err, result) => {
