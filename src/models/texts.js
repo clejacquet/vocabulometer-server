@@ -1,94 +1,56 @@
 const Lexer = require('lex');
+const natural = require('natural');
+
+const wordTokenizer = new natural.WordTokenizer();
+
+function splitParagraphs(text) {
+	return text.split('\r\n').filter((paragraph) => paragraph.length > 0);
+}
+
+function compute(data) {
+	const paragraphs = splitParagraphs(data);
+
+	return paragraphs.map((paragraph) => {
+		const words = wordTokenizer.tokenize(paragraph);
+		const nonStopWords = words.filter((word) => !natural.stopwords.includes(word));
+
+		return {
+			'raw': paragraph,
+			'allWords': words,
+			'nonStopWords': nonStopWords
+		}
+	})
+}
 
 module.exports = (mongoose, models) => {
 	const textSchema = new mongoose.Schema({
 		id: Number,
 		text: {
 			title: String,
-			body: [mongoose.Schema.Types.Mixed]
+			body: mongoose.Schema.Types.Mixed
 		}
 	});
 
 	textSchema.statics.loadText = function (text, cb) {
-		const lexer = new Lexer((char) => {
-			cb(new Error('Error while analyzing \'' + char + '\''));
-		});
-
-		let quotationZone = false;
-
-		lexer
-			.addRule(/[0-9]+([.,][0-9]+)?\s*[°'%]?/, lexeme => { return { token: 'NUMBER', value: lexeme } })
-			.addRule(/[a-zA-ZÀ-ÿ'-²³]+('[st])?/, lexeme => { return { token: 'WORD', value: lexeme } })
-			.addRule(/\.\.\./, lexeme => { return { token: 'TRIPLE POINT', value: lexeme } })
-			.addRule(/\./, lexeme => { return  { token: 'POINT', value: lexeme } })
-			.addRule(/,/, lexeme => { return  { token: 'COMMA', value: lexeme } })
-			.addRule(/'/, lexeme => { return  { token: 'APOSTROPHE', value: lexeme } })
-			.addRule(/"/, lexeme => {
-				const val = { token: ((quotationZone) ? 'OPEN' : 'CLOSE') + ' QUOTATION', value: lexeme };
-				quotationZone = !quotationZone;
-				return val;
-			})
-			.addRule(/:/, lexeme => { return  { token: 'COLON', value: lexeme } })
-			.addRule(/;/, lexeme => { return  { token: 'SEMI-COLON', value: lexeme } })
-			.addRule(/\?/, lexeme => { return  { token: 'QUESTION', value: lexeme } })
-			.addRule(/!/, lexeme => { return  { token: 'EXCLAMATION', value: lexeme } })
-			.addRule(/-/, lexeme => { return  { token: 'DASH', value: lexeme } })
-			.addRule(/\(/, lexeme => { return  { token: 'OPEN PARENTHESE', value: lexeme } })
-			.addRule(/\)/, lexeme => { return { token: 'CLOSE PARENTHESE', value: lexeme } })
-			.addRule(/\[/, lexeme => { return { token: 'OPEN BRACKET', value: lexeme } })
-			.addRule(/]/, lexeme => { return { token: 'CLOSE BRACKET', value: lexeme } })
-			.addRule(/\n/, lexeme => { return { token: 'RETURN', value: lexeme } })
-			.addRule(/\s/, lexeme => { return { token: 'SPACE', value: lexeme } })
-			.addRule(/./, lexeme => { return { token: 'UNDEFINED', value: lexeme } });
-
-		lexer.setInput(text);
-
-		let results = [];
-
-		let result;
-		while (result = lexer.lex()) {
-			results.push(result);
-		}
-
-		results = results
-			.filter(token => !(token.token === 'SPACE' || token.token === 'UNDEFINED'))
-			.reduce((acc, token) => {
-				try {
-					if (token.token === 'RETURN') {
-						acc.push([]);
-					} else {
-						acc[acc.length - 1].push(token);
-					}
-				} catch (err) {
-					console.error(err);
-				}
-
-				return acc;
-			}, [[]])
-			.filter(paragraph => paragraph.length > 0);
-
-		cb(null, results);
+		cb(null, compute(text));
 	};
 
 	textSchema.statics.loadAndCreateText = function (title, text, cb) {
-		this.loadText(text, (err, results) => {
+		this.create({
+			text: {
+				title: title,
+				body: text,
+				source: 'BBC'
+			}
+		}, (err, result) => {
 			if (err) {
 				return cb(err);
 			}
 
-			this.create({
-				text: {
-					title: title,
-					body: results
-				}
-			}, (err, result) => {
-				if (err) {
-					return cb(err);
-				}
+			console.log(result);
 
-				cb(null, result.text.body);
-			});
-		})
+			cb(null, compute(result.text.body));
+		});
 	};
 
 	textSchema.statics.loadAndModifyText = function (id, text, cb) {

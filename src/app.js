@@ -17,9 +17,9 @@ const authPath = [
 module.exports = (cb) => {
 	// HTTP UTILS MIDDLEWARES LOADING
 
-	const publicDirectory = '../dist';
+	const publicDirectory = process.env.VCBM_DIST_PATH || './dist';
 
-	app.use(favicon(path.join(__dirname, publicDirectory, 'favicon.ico')));
+	app.use(favicon(path.join(publicDirectory, 'favicon.ico')));
 	app.use(logger('dev'));
 	app.use(cors({credentials: true}));
 	app.use(bodyParser.json());
@@ -37,7 +37,7 @@ module.exports = (cb) => {
 		next();
 	});
 
-	app.use(express.static(path.join(__dirname, publicDirectory)));
+	app.use(express.static(publicDirectory));
 
   // MODELS LOADING
 
@@ -81,7 +81,7 @@ module.exports = (cb) => {
 
     // catch 404
 		app.use((req, res) => {
-			res.sendFile(path.join(__dirname, publicDirectory, '/index.html'));
+			res.sendFile(path.resolve(path.join(publicDirectory, 'index.html')));
 		});
 
     // error handler

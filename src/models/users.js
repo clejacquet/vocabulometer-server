@@ -21,9 +21,7 @@ module.exports = (mongoose, models) => {
 					if (err) {
 						return cb(err);
 					}
-					cb(null, {
-
-					})
+					cb(null, res);
 				});
 			}).catch((err) => {
 			cb(err);
@@ -78,6 +76,9 @@ module.exports = (mongoose, models) => {
 				}
 
 				models.texts.aggregate([
+					{
+						$sample: { size: 100 }
+					},
 					{
 						$unwind: "$text.body"
 					},
@@ -148,14 +149,14 @@ module.exports = (mongoose, models) => {
 		});
 	};
 
-	model.addWord = (word, userId, cb) => {
+	model.addWords = (words, userId, cb) => {
 		try {
 			model.findOne({ _id: userId }, (err, doc) => {
 				if (!doc) {
 					return cb(null, null);
 				}
 
-				doc.words.push({ word: word });
+				doc.words.push(... words.map((word) => { return {word: word}; }));
 				doc.save((err) => {
 					cb(err, doc);
 				});

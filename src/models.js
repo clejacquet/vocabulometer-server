@@ -3,7 +3,9 @@ mongoose.Promise = require('bluebird');
 
 module.exports = (cb) => {
 	// const connectionString = 'mongodb://localhost/vocabnalyze';
-	const connectionString = 'mongodb://ds062448.mlab.com:62448/vocabulometer';
+	// const connectionString = 'mongodb://ds062448.mlab.com:62448/vocabulometer';
+	const connectionString = 'mongodb://ds127129.mlab.com:27129/vocabulometer-dev';
+
 	mongoose.connect(connectionString, {
 		user: 'clejacquet',
 		pass: 'clejacquet-imp'
@@ -17,8 +19,11 @@ module.exports = (cb) => {
 
 		models.toObjectID = id => mongoose.Types.ObjectId(id);
 
+		models.stopWords = require('./models/stopwords');
 		models.texts = require('./models/texts')(mongoose, models);
 		models.users = require('./models/users')(mongoose, models);
+		models.scores = require('./models/score')(mongoose, models);
+		models.userWordScores = require('./models/userWordScores')(mongoose, models);
 
 		cb(models);
 	});

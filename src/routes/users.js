@@ -3,19 +3,17 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 
 
-
-
 module.exports = (passport) => {
 	router.post('/:uid/word', (req, res, next) => {
-		const word = req.body.word.replace(/[^a-zA-Z0-9-']/g, "").toLowerCase();
-		if (word === '') {
-			res.status(400);
-			return res.json({
-				status: 'empty'
+		const words = req.body.words || [req.body.word]
+			.map((word) => {
+				return word.replace(/[^a-zA-Z0-9-']/g, "").toLowerCase();
+			})
+			.filter((word) => {
+				return word !== ''
 			});
-		}
 
-		req.models.users.addWord(word, req.params.uid, (err, result) => {
+		req.models.users.addWords(words, req.params.uid, (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -76,7 +74,7 @@ module.exports = (passport) => {
 	router.get('/current/stats/words_read',
 		passport.isLoggedIn,
 		(req, res, next) => {
-			req.models.users.getWordsPerDay(req.user._id, 7, (err, result) => {
+			req.models.users.getWordsPerDay(req.user._id, parseInt(req.query.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -91,7 +89,7 @@ module.exports = (passport) => {
 	router.get('/current/stats/new_words_read',
 		passport.isLoggedIn,
 		(req, res, next) => {
-			req.models.users.getNewWordsPerDay(req.user._id, 7, (err, result) => {
+			req.models.users.getNewWordsPerDay(req.user._id, parseInt(req.query.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -106,7 +104,7 @@ module.exports = (passport) => {
 	router.get('/current/stats/new_recent_words_read',
 		passport.isLoggedIn,
 		(req, res, next) => {
-			req.models.users.getRecentNewWords(req.user._id, 10, (err, result) => {
+			req.models.users.getRecentNewWords(req.user._id, parseInt(req.query.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -118,10 +116,10 @@ module.exports = (passport) => {
 			});
 		});
 
-	router.get('/current/stats/hard_texts',
+	router.get('/current/hard_texts',
 		passport.isLoggedIn,
 		(req, res, next) => {
-			req.models.users.getHardTexts(req.user._id, 5, (err, result) => {
+			req.models.users.getHardTexts(req.user._id, parseInt(req.query.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -133,10 +131,10 @@ module.exports = (passport) => {
 			});
 		});
 
-	router.get('/current/stats/easy_texts',
+	router.get('/current/easy_texts',
 		passport.isLoggedIn,
 		(req, res, next) => {
-			req.models.users.getEasyTexts(req.user._id, 5, (err, result) => {
+			req.models.users.getEasyTexts(req.user._id, parseInt(req.query.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -147,6 +145,21 @@ module.exports = (passport) => {
 				});
 			});
 		});
+
+	router.get('/current/recommend',
+		passport.isLoggedIn,
+		(req, res, next) => {
+		req.models.scores.compute(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			if (err) {
+				return next(err);
+			}
+
+			res.status(200);
+			res.json({
+				texts: result
+			});
+		})
+	});
 
 	router.get('/:uid/similartexts', (req, res, next) => {
 		req.models.users.getSimilarTexts(req.models.toObjectID(req.params.uid), (err, result) => {
@@ -162,7 +175,7 @@ module.exports = (passport) => {
 	});
 
 	router.get('/:uid/stats/words_read', (req, res, next) => {
-		req.models.users.getWordsPerDay(req.models.toObjectID(req.params.uid), 7, (err, result) => {
+		req.models.users.getWordsPerDay(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -175,7 +188,7 @@ module.exports = (passport) => {
 	});
 
 	router.get('/:uid/stats/new_words_read', (req, res, next) => {
-		req.models.users.getNewWordsPerDay(req.models.toObjectID(req.params.uid), 7, (err, result) => {
+		req.models.users.getNewWordsPerDay(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -188,7 +201,7 @@ module.exports = (passport) => {
 	});
 
 	router.get('/:uid/stats/new_recent_words_read', (req, res, next) => {
-		req.models.users.getRecentNewWords(req.models.toObjectID(req.params.uid), 10, (err, result) => {
+		req.models.users.getRecentNewWords(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -200,8 +213,8 @@ module.exports = (passport) => {
 		});
 	});
 
-	router.get('/:uid/stats/hard_texts', (req, res, next) => {
-		req.models.users.getHardTexts(req.models.toObjectID(req.params.uid), 5, (err, result) => {
+	router.get('/:uid/hard_texts', (req, res, next) => {
+		req.models.users.getHardTexts(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -213,8 +226,8 @@ module.exports = (passport) => {
 		});
 	});
 
-	router.get('/:uid/stats/easy_texts', (req, res, next) => {
-		req.models.users.getEasyTexts(req.models.toObjectID(req.params.uid), 5, (err, result) => {
+	router.get('/:uid/easy_texts', (req, res, next) => {
+		req.models.users.getEasyTexts(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -224,6 +237,19 @@ module.exports = (passport) => {
 				texts: result
 			});
 		});
+	});
+
+	router.get('/:uid/recommend', (req, res, next) => {
+		req.models.scores.compute(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			if (err) {
+				return next(err);
+			}
+
+			res.status(200);
+			res.json({
+				texts: result
+			});
+		})
 	});
 
 

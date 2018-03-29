@@ -10,9 +10,6 @@ function getTextOnPage(model, page, cb) {
 	}
 
 	model.find({}, ['text.title'], {
-		sort: {
-			'text.title': 1
-		},
 		skip: skip,
 		limit: limit
 	}, cb);
@@ -77,23 +74,7 @@ module.exports = (passport) => {
 		});
 	});
 
-	router.get('/:id', passport.isLoggedIn, (req, res, next) => {
-		req.models.texts.findOne({ _id: req.params.id }, (err, result) => {
-			if (err) {
-				return next(err);
-			}
-
-			if (!result) {
-				return next(new Error('Not Found'));
-			}
-
-			res.status(200);
-			res.json({
-				text: result.text
-			});
-		});
-	});
-
+	//TODO: TO CHANGE
 	router.put('/:id/text', passport.isLoggedIn, (req, res, next) => {
 		req.models.texts.loadAndModifyText(req.params.id, req.body.text, (err, result) => {
 			if (err) {
@@ -127,14 +108,39 @@ module.exports = (passport) => {
 		});
 	});
 
+	router.get('/:id', passport.isLoggedIn, (req, res, next) => {
+		req.models.texts.findOne({ _id: req.params.id }, (err, result) => {
+			if (err) {
+				return next(err);
+			}
+
+			if (!result) {
+				return next(new Error('Not Found'));
+			}
+
+			req.models.texts.loadText(result.text.body, (err, text) => {
+				if (err) {
+					return next(err);
+				}
+
+				res.status(200);
+				res.json({
+					text: {
+						title: result.text.title,
+						body: text
+					}
+				});
+			});
+		});
+	});
+
 	router.post('/', (req, res, next) => {
-		req.models.texts.loadAndCreateText(req.body.title, req.body.text, (err, results) => {
+		req.models.texts.loadAndCreateText(req.body.title, req.body.text, (err, text) => {
 			if (err) {
 				return next(err);
 			}
 			res.json({
-				result: results.map(paragraph => paragraph.map(token => token.value)),
-				text: results
+				text: text
 			});
 		});
 	});
