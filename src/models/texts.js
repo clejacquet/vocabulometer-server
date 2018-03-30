@@ -1,10 +1,11 @@
-const Lexer = require('lex');
 const natural = require('natural');
 
 const wordTokenizer = new natural.WordTokenizer();
 
 function splitParagraphs(text) {
-	return text.split('\r\n').filter((paragraph) => paragraph.length > 0);
+	return text
+        .split('\n')
+        .filter((paragraph) => paragraph.length > 0);
 }
 
 function compute(data) {
@@ -12,7 +13,8 @@ function compute(data) {
 
 	return paragraphs.map((paragraph) => {
 		const words = wordTokenizer.tokenize(paragraph);
-		const nonStopWords = words.filter((word) => !natural.stopwords.includes(word));
+		const nonStopWords = words
+			.filter((word) => !natural.stopwords.includes(word));
 
 		return {
 			'raw': paragraph,
@@ -20,6 +22,13 @@ function compute(data) {
 			'nonStopWords': nonStopWords
 		}
 	})
+}
+
+function uniq(a) {
+    const seen = {};
+    return a.filter(function(item) {
+        return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+    });
 }
 
 module.exports = (mongoose, models) => {
@@ -38,9 +47,10 @@ module.exports = (mongoose, models) => {
 	};
 
 	textSchema.statics.loadAndCreateText = function (title, text, cb) {
-        const words = wordTokenizer
+        const words = uniq(wordTokenizer
 			.tokenize(text)
-			.filter((word) => !natural.stopwords.includes(word));
+			.filter((word) => !natural.stopwords.includes(word))
+            .map((word) => word.toLowerCase()));
 
 		this.create({
 			text: {
@@ -66,7 +76,10 @@ module.exports = (mongoose, models) => {
 				return cb(err);
 			}
 
-			this.findOneAndUpdate({ _id: id }, { $set: { 'text.body': results }}, (err, result) => {
+			const body = results.map((paragraph) => paragraph.raw).join('\n');
+			const words = uniq([].concat.apply([], results.map((paragraph) => paragraph.nonStopWords)));
+
+			this.findOneAndUpdate({ _id: id }, { $set: { 'text.body': body, 'text.words': words }}, (err, result) => {
 				if (err) {
 					return cb(err);
 				}

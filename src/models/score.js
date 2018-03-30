@@ -6,71 +6,73 @@ module.exports = (mongoose, models) => {
 			}
 
 			models.users.aggregate([
-				{
-					$match: {
-						_id: mongoose.Types.ObjectId("59673bdd51e3cc2f885c37f4")
-					}
-				},
-				{
-					$unwind: '$words'
-				},
-				{
-					$sort: {
-						"words.time": -1
-					}
-				},
-				{
-					$group: {
-						_id: '$words.word',
-						occurences: {
-							$push: '$words.time'
-						},
-						count: {$sum: 1}
-					}
-				},
-				{
-					$project: {
-						intervals: {
-							$reduce: {
-								input: "$occurences",
-								initialValue: {array: [], lastdate: new Date()},
-								in: {
-									array: {$concatArrays: ["$$value.array", [{$divide: [{$subtract: ["$$value.lastdate", "$$this"]}, 3600 * 1000 * 24]}]]},
-									lastdate: "$$this"
-								}
-							}
-						}
-					}
-				},
-				{
-					$project: {
-						score: {
-							$reduce: {
-								input: {$reverseArray: "$intervals.array"},
-								initialValue: 1,
-								in: {
-									$add: [1, {$multiply: ["$$value", {$exp: {$multiply: [-0.05, "$$this"]}}]}]
-								}
-							}
-						}
-					}
-				},
-				{
-					$sort: {
-						score: -1
-					}
-				},
-				{
-					$limit: 500
-				}
-			], (err, result) => {
+                {
+                    $match: {
+                        _id: userId
+                    }
+                },
+                {
+                    $unwind: '$words'
+                },
+                {
+                    $sort: {
+                        "words.time": -1
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$words.word',
+                        occurences: {
+                            $push: '$words.time'
+                        },
+                        count: {$sum: 1}
+                    }
+                },
+                {
+                    $project: {
+                        intervals: {
+                            $reduce: {
+                                input: "$occurences",
+                                initialValue: {array: [], lastdate: new Date()},
+                                in: {
+                                    array: {$concatArrays: ["$$value.array", [{$divide: [{$subtract: ["$$value.lastdate", "$$this"]}, 3600 * 1000 * 24]}]]},
+                                    lastdate: "$$this"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    $project: {
+                        score: {
+                            $reduce: {
+                                input: {$reverseArray: "$intervals.array"},
+                                initialValue: 1,
+                                in: {
+                                    $add: [1, {$multiply: ["$$value", {$exp: {$multiply: [-0.05, "$$this"]}}]}]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    $sort: {
+                        score: -1
+                    }
+                },
+                {
+                    $limit: 500
+                }
+            ], (err, result) => {
 				if (err) {
 					return cb(err);
 				}
 
+				console.log(result);
+
 				const finalResults = result.map((wordScore) => ({word: wordScore._id, score: wordScore.score}));
 
-				models.userWordScores.saveScores(mongoose.Types.ObjectId("59673bdd51e3cc2f885c37f4"), finalResults,
+				models.userWordScores.saveScores(mongoose.Types.ObjectId(userId), finalResults,
 					(err, result2) => {
 						if (err) {
 							return cb(err);
@@ -81,56 +83,8 @@ module.exports = (mongoose, models) => {
 								$sample: { size: 100 }
 							},
 							{
-								$unwind: "$text.body"
-							},
-							{
 								$project: {
-									"title": "$text.title",
-									"text.body": {
-										$let: {
-											vars: {
-												stopWords: models.stopWords
-											},
-											in: {
-												$filter: {
-													input: "$text.body",
-													as: "pair",
-													cond: {
-														$and: [
-															{$eq: ["$$pair.token", "WORD"]},
-															{$not: {$in: [{$toLower: "$$pair.value"}, "$$stopWords"]}}
-														]
-													}
-												}
-											}
-										}
-									}
-								}
-							},
-							{
-								$unwind: "$text.body"
-							},
-							{
-								$project: {
-									title: "$title",
-									word: {$toLower: "$text.body.value"}
-								}
-							},
-							{
-								$group: {
-									_id: {_id: "$_id", title: "$title"},
-									words: {
-										$push: "$word"
-									},
-									wordCount: {
-										$sum: 1
-									}
-								}
-							},
-							{
-								$project: {
-									_id: "$_id._id",
-									title: "$_id.title",
+									title: "$text.title",
 									score: {
 										$let: {
 											vars: {word_scores: finalResults},
@@ -141,7 +95,7 @@ module.exports = (mongoose, models) => {
 															$filter: {
 																input: "$$word_scores",
 																cond: {
-																	$in: ["$$this.word", "$words"]
+																	$in: ["$$this.word", "$text.words"]
 																}
 															}
 														},
@@ -150,7 +104,9 @@ module.exports = (mongoose, models) => {
 															$sum: ["$$value", "$$this.score"],
 														}
 													}
-												}, "$wordCount"]
+												}, {
+                                                    $size: '$text.words'
+                                                }]
 											}
 										}
 									}

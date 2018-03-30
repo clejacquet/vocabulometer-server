@@ -80,47 +80,10 @@ module.exports = (mongoose, models) => {
 						$sample: { size: 100 }
 					},
 					{
-						$unwind: "$text.body"
-					},
-					{
 						$project: {
-							body: {
-								$let: {
-									vars: {
-										stopWords: stopwords
-									},
-									in: {
-										$filter: {
-											input: "$text.body",
-											as: "pair",
-											cond: {
-												$and: [
-													{ $eq: [ "$$pair.token", "WORD" ] },
-													{ $not: { $in: [ { $toLower: "$$pair.value" },  "$$stopWords"] } }
-												]
-											}
-										}
-									}
-								}
-							},
-							title: "$text.title"
-						}
-					},
-					{
-						$unwind: "$body"
-					},
-					{
-						$group: {
-							_id: { _id: "$_id", title: "$title" },
-							words: { $addToSet: { $toLower: "$body.value" } }
-						}
-					},
-					{
-						$project: {
-							_id: "$_id._id",
-							title: "$_id.title",
+							title: "$text.title",
 							score: {
-								$divide: [ { $size: { $setIntersection: [ "$words", values.values ] } }, { $size: "$words" } ]
+								$divide: [ { $size: { $setIntersection: [ "$text.words", values.values ] } }, { $size: "$text.words" } ]
 							}
 						}
 					},

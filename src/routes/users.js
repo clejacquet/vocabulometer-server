@@ -149,7 +149,7 @@ module.exports = (passport) => {
 	router.get('/current/recommend',
 		passport.isLoggedIn,
 		(req, res, next) => {
-		req.models.scores.compute(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+		req.models.scores.compute(req.models.toObjectID(req.user._id), parseInt(req.query.limit), (err, result) => {
 			if (err) {
 				return next(err);
 			}
