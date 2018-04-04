@@ -46,7 +46,7 @@ module.exports = (mongoose, models) => {
 		cb(null, compute(text));
 	};
 
-	textSchema.statics.loadAndCreateText = function (title, text, cb) {
+	textSchema.statics.loadAndCreateText = function (title, text, source, cb) {
         const words = uniq(wordTokenizer
 			.tokenize(text)
 			.filter((word) => !natural.stopwords.includes(word))
@@ -57,14 +57,12 @@ module.exports = (mongoose, models) => {
 				title: title,
 				body: text,
 				words: words,
-				source: 'BBC'
+				source: source
 			}
 		}, (err, result) => {
 			if (err) {
 				return cb(err);
 			}
-
-			console.log(result);
 
 			cb(null, compute(result.text.body));
 		});

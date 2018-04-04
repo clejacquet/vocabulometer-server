@@ -74,7 +74,6 @@ module.exports = (passport) => {
 		});
 	});
 
-	//TODO: TO CHANGE
 	router.put('/:id/text', passport.isLoggedIn, (req, res, next) => {
 		req.models.texts.loadAndModifyText(req.params.id, req.body.text, (err, result) => {
 			if (err) {
@@ -135,7 +134,7 @@ module.exports = (passport) => {
 	});
 
 	router.post('/', (req, res, next) => {
-		req.models.texts.loadAndCreateText(req.body.title, req.body.text, (err, text) => {
+		req.models.texts.loadAndCreateText(req.body.title, req.body.body, req.body.source, (err, text) => {
 			if (err) {
 				return next(err);
 			}
