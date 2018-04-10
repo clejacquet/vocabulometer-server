@@ -3,7 +3,8 @@ mongoose.Promise = require('bluebird');
 
 module.exports = (cb) => {
 	// const connectionString = 'mongodb://ds062448.mlab.com:62448/vocabulometer';
-	const connectionString = 'mongodb://ds127129.mlab.com:27129/vocabulometer-dev';
+    // const connectionString = 'mongodb://ds127129.mlab.com:27129/vocabulometer-dev';
+    const connectionString = 'mongodb://mongo/vocabulometer';
 
 	mongoose.connect(connectionString, {
 		user: 'clejacquet',

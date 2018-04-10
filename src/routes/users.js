@@ -52,6 +52,7 @@ module.exports = (passport) => {
 			next();
 		},
 		(req, res) => {
+			console.log(req.user + ' / ' + req.token);
 			res.json({
 				user: req.user,
 				token: req.token
