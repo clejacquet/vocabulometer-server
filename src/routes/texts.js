@@ -117,30 +117,22 @@ module.exports = (passport) => {
 				return next(new Error('Not Found'));
 			}
 
-			req.models.texts.loadText(result.text.body, (err, text) => {
-				if (err) {
-					return next(err);
-				}
+			const text = result.toObject().text;
 
-				res.status(200);
-				res.json({
-					text: {
-						title: result.text.title,
-						body: text
-					}
-				});
+			res.status(200);
+			res.json({
+				body: text.body,
+				title: text.title
 			});
 		});
 	});
 
 	router.post('/', (req, res, next) => {
-		req.models.texts.loadAndCreateText(req.body.title, req.body.body, req.body.source, (err, text) => {
+		req.models.texts.loadAndCreateTexts(req.body.texts, (err, text) => {
 			if (err) {
 				return next(err);
 			}
-			res.json({
-				text: text
-			});
+			res.json(text);
 		});
 	});
 

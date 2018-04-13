@@ -1,27 +1,29 @@
-const natural = require('natural');
+const request = require('request');
+const async = require('async');
 
-const wordTokenizer = new natural.WordTokenizer();
-
-function splitParagraphs(text) {
-	return text
-        .split('\n')
-        .filter((paragraph) => paragraph.length > 0);
-}
-
-function compute(data) {
-	const paragraphs = splitParagraphs(data);
-
-	return paragraphs.map((paragraph) => {
-		const words = wordTokenizer.tokenize(paragraph);
-		const nonStopWords = words
-			.filter((word) => !natural.stopwords.includes(word));
-
-		return {
-			'raw': paragraph,
-			'allWords': words,
-			'nonStopWords': nonStopWords
+function compute(texts, cb) {
+	request({
+		uri: 'http://' + (process.env.NLP_ADDRESS || 'nlp') + '/vocabulometer/lemmatize',
+		method: 'POST',
+		json: {
+			texts: texts
 		}
-	})
+	}, (error, response, body) => {
+		if (error) {
+			return cb(error);
+		}
+
+		if (response.statusCode !== 200) {
+			return cb('NLP server responded with status code ' + response.statusCode);
+		}
+
+		cb(null, body.texts.map(text => text.result.map((paragraph) => {
+            return {
+                interWords: paragraph.interWords,
+                words: paragraph.words
+            }
+        })));
+	});
 }
 
 function uniq(a) {
@@ -32,50 +34,77 @@ function uniq(a) {
 }
 
 module.exports = (mongoose, models) => {
+	const paragraphWordSchema = new mongoose.Schema({
+        raw: String,
+        lemma: String
+	}, { _id: false });
+
+	const paragraphSchema = new mongoose.Schema({
+        interWords: [String],
+        words: [paragraphWordSchema]
+	},{ _id : false });
+
 	const textSchema = new mongoose.Schema({
-		id: Number,
 		text: {
 			title: String,
-			body: String,
+			body: [paragraphSchema],
 			words: [String],
 			source: String
 		}
 	});
 
-	textSchema.statics.loadText = function (text, cb) {
-		cb(null, compute(text));
-	};
+	textSchema.statics.loadAndCreateTexts = function (texts, cb) {
+		const bodies = texts.map(text => text.body);
 
-	textSchema.statics.loadAndCreateText = function (title, text, source, cb) {
-        const words = uniq(wordTokenizer
-			.tokenize(text)
-			.filter((word) => !natural.stopwords.includes(word))
-            .map((word) => word.toLowerCase()));
+        compute(bodies, (err, computedBodies) => {
+            if (err) {
+                return cb(err);
+            }
 
-		this.create({
-			text: {
-				title: title,
-				body: text,
-				words: words,
-				source: source
-			}
-		}, (err, result) => {
-			if (err) {
-				return cb(err);
-			}
+            const computedTexts = computedBodies.map((paragraphs, i) => {
+            	return {
+            		body: paragraphs,
+					title: texts[i].title,
+					source: texts[i].source
+				}
+			});
 
-			cb(null, compute(result.text.body));
-		});
+            const tasks = computedTexts.map((text) => {
+            	return cb => {
+                    const words = uniq([]
+                        .concat(...text.body.map(p => p.words))
+                        .filter(w => w.lemma != null)
+                        .map(w => w.lemma));
+
+                    this.create({
+                        text: {
+                            title: text.title,
+                            body: text.body,
+                            words: words,
+                            source: text.source
+                        }
+                    }, cb);
+				}
+			});
+
+            async.parallel(tasks, cb);
+        });
+
 	};
 
 	textSchema.statics.loadAndModifyText = function (id, text, cb) {
-		this.loadText(text, (err, results) => {
+		compute([text], (err, texts) => {
 			if (err) {
 				return cb(err);
 			}
 
-			const body = results.map((paragraph) => paragraph.raw).join('\n');
-			const words = uniq([].concat.apply([], results.map((paragraph) => paragraph.nonStopWords)));
+			const paragraphs = texts[0];
+
+			const body = paragraphs;
+            const words = uniq([]
+                .concat(...paragraphs.map(p => p.words))
+                .filter(w => w.lemma != null)
+                .map(w => w.lemma));
 
 			this.findOneAndUpdate({ _id: id }, { $set: { 'text.body': body, 'text.words': words }}, (err, result) => {
 				if (err) {
