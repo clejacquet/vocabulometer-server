@@ -68,7 +68,7 @@ module.exports = (mongoose, models) => {
 					return cb(err);
 				}
 
-				console.log(result);
+				winston.log('info', result);
 
 				const finalResults = result.map((wordScore) => ({word: wordScore._id, score: wordScore.score}));
 

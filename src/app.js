@@ -1,13 +1,17 @@
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 const cors = require('cors');
 const favicon = require('serve-favicon');
-const logger = require('morgan');
+const winston = require('winston');
 const cookieParser = require('cookie-parser');
 const cookieSession = require('cookie-session');
 const bodyParser = require('body-parser');
 
 const app = express();
+
+const log = require('./logUtils')(winston);
+const loggerMiddleware = log.middleware;
 
 
 const authPath = [
@@ -19,8 +23,19 @@ module.exports = (cb) => {
 
 	const publicDirectory = process.env.VCBM_DIST_PATH || './dist';
 
-	app.use(favicon(path.join(publicDirectory, 'favicon.ico')));
-	app.use(logger('dev'));
+	// Checking for the favicon
+    let faviconMiddleware = null;
+	try {
+        faviconMiddleware = favicon(path.join(publicDirectory, 'favicon.ico'));
+	} catch (ex) {
+		return winston.log('error', 'Can\'t find the favicon file. Please be sure the ' +
+			'DIST folder has been found and has been produced with \'ng ' +
+			'build\' and not \'ng serve\'.\nSorry, we have no choice but to kill the app.');
+    }
+
+	app.use(compression());
+	app.use(faviconMiddleware);
+	app.use(loggerMiddleware);
 	app.use(cors({credentials: true}));
 	app.use(bodyParser.json());
 	app.use(bodyParser.urlencoded({ extended: true }));
@@ -34,12 +49,16 @@ module.exports = (cb) => {
 	}));
 
 	app.use((req, res, next) => {
+		res.sendError = (error) => {
+            res.status(error.status);
+            res.json(formatError(req, error));
+		};
 		next();
 	});
 
 	app.use(express.static(publicDirectory));
 
-  // MODELS LOADING
+  	// MODELS LOADING
 
 	require('./models')((models) => {
 		app.use((req, res, next) => {
@@ -67,7 +86,7 @@ module.exports = (cb) => {
 
     // ROUTES LOADING
 
-		const router = express.Router();
+		const router = express.Router({});
 
 		const users = require('./routes/users')(passport);
 		const texts = require('./routes/texts')(passport);
@@ -81,26 +100,66 @@ module.exports = (cb) => {
 
     // catch 404
 		app.use((req, res) => {
+            const dummy = null;
+            dummy();
+
+			// If it is an API call, send a JSON error message
+			if (req.originalUrl.startsWith('/api/')) {
+				const error = normalizeError(req, {
+					status: 404,
+					error: 'Error 404: Path provided not bound to any services'
+				});
+
+				return res.sendError(error)
+			}
+
+			// If it's not an API call, then just redirect to the Angular web app
 			res.sendFile(path.resolve(path.join(publicDirectory, 'index.html')));
 		});
 
     // error handler
-		app.use((err, req, res, next) => {
-			if (err.status === 401) {
-				res.status(401);
-				return res.json(err.inner);
+		app.use((error, req, res, next) => {
+			error = normalizeError(req, error);
+
+			// If it is a server error, VERY BAD
+			if (error.status === 500) {
+                winston.log('error', error);
 			}
 
-			// set locals, only providing error in development
-			console.error(err);
-			res.locals.message = err.message;
-			res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-			// render the error page
-			res.status(err.status || 500);
-			res.json({error: err});
+			return res.sendError(error);
 		});
 
 		cb(app);
 	});
 };
+
+function normalizeError(req, error) {
+	if (error.status === undefined) {
+		error.status = 500;
+	}
+
+	if (error.message === undefined) {
+		error.message = 'Server responded with error 500'
+	}
+
+	if (error.inner !== undefined) {
+		error.stack = error.inner.stack;
+	}
+
+	return {
+		status: error.status,
+		error: error.message,
+		details: (error.stack !== undefined) ?
+            error.stack.toString().split('\n')
+            : error.details,
+        provided: req.method + ' ' + req.originalUrl
+	}
+}
+
+function formatError(req, error) {
+	error.details = req.app.get('env') === 'development' ?
+        error.details
+        : undefined;
+
+	return error;
+}

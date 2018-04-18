@@ -1,5 +1,6 @@
 const request = require('request');
 const async = require('async');
+const _ = require('underscore');
 
 function compute(texts, cb) {
 	request({
@@ -26,14 +27,7 @@ function compute(texts, cb) {
 	});
 }
 
-function uniq(a) {
-    const seen = {};
-    return a.filter(function(item) {
-        return seen.hasOwnProperty(item) ? false : (seen[item] = true);
-    });
-}
-
-module.exports = (mongoose, models) => {
+module.exports = (mongoose) => {
 	const paragraphWordSchema = new mongoose.Schema({
         raw: String,
         lemma: String
@@ -53,6 +47,18 @@ module.exports = (mongoose, models) => {
 		}
 	});
 
+	// INPUT: [
+	// 		{
+	// 			title: String,
+	// 			body: [
+	// 				{
+	// 					words: String[]
+	// 				}
+	// 			],
+	// 			source: String
+	// 		}
+	// ]
+	// OUTPUT: [{  }]
 	textSchema.statics.loadAndCreateTexts = function (texts, cb) {
 		const bodies = texts.map(text => text.body);
 
@@ -71,7 +77,7 @@ module.exports = (mongoose, models) => {
 
             const tasks = computedTexts.map((text) => {
             	return cb => {
-                    const words = uniq([]
+                    const words = _.uniq([]
                         .concat(...text.body.map(p => p.words))
                         .filter(w => w.lemma != null)
                         .map(w => w.lemma));

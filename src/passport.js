@@ -1,27 +1,7 @@
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 const LocalStrategy = require('passport-local');
 
 const authenticate = require('express-jwt')({secret : 'efe5s3fs5f4e5s5c55e5segrgrg2s3'});
-
-const GOOGLE_CONSUMER_KEY = '776219373924-g37o5k82bcjc2lac1tb0068kkeidv1hc.apps.googleusercontent.com';
-const GOOGLE_CONSUMER_SECRET = 'k1MLbfGe70et6KIrrx5pgDpm';
-
-function deserialize(req, res, next) {
-	req.models.users
-		.findOne({ name: req.user.id })
-		.select({
-			name: 1,
-			_id: 1
-		})
-		.exec((err, result) => {
-			if (err) {
-				return next(err);
-			}
-			req.user = result;
-			next();
-		});
-}
 
 module.exports = (models) => {
 	passport.serializeUser(function(user, done) {
@@ -38,18 +18,6 @@ module.exports = (models) => {
 				_id: 1
 			}).exec(done);
 	});
-
-	passport.use(new GoogleStrategy({
-			clientID: GOOGLE_CONSUMER_KEY,
-			clientSecret: GOOGLE_CONSUMER_SECRET,
-			callbackURL: "http://localhost:4100/api/users/auth/google/callback"
-		},
-		function(token, tokenSecret, profile, done) {
-			models.users.findOneOrCreate({ name: profile.displayName }, { name: profile.displayName }, function (err, user) {
-				return done(err, user);
-			});
-		}
-	));
 
 	passport.use(new LocalStrategy((username, password, done) => {
 		models.users.findOne({ name: username }, (err, user) => {
@@ -85,3 +53,18 @@ module.exports = (models) => {
 	return passport;
 };
 
+function deserialize(req, res, next) {
+    req.models.users
+        .findOne({ name: req.user.id })
+        .select({
+            name: 1,
+            _id: 1
+        })
+        .exec((err, result) => {
+            if (err) {
+                return next(err);
+            }
+            req.user = result;
+            next();
+        });
+}

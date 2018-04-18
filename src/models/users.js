@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const stopwords = require('./stopwords');
+const winston = require('winston');
 
 module.exports = (mongoose, models) => {
 	const userSchema = new mongoose.Schema({
@@ -98,7 +98,7 @@ module.exports = (mongoose, models) => {
 				], cb);
 			});
 		} catch( err ){
-			console.error(err);
+			winston.log('error', err);
 		}
 	}
 
@@ -125,7 +125,7 @@ module.exports = (mongoose, models) => {
 				});
 			});
 		} catch( err ){
-			console.error(err);
+			winston.log('error', err);
 		}
 	};
 
