@@ -1,20 +1,35 @@
 const request = require('request');
 const async = require('async');
 const _ = require('underscore');
+const winston = require('winston');
 
 function compute(texts, cb) {
+	const uri = 'http://' + (process.env.NLP_ADDRESS || 'nlp') + '/vocabulometer/lemmatize';
 	request({
-		uri: 'http://' + (process.env.NLP_ADDRESS || 'nlp') + '/vocabulometer/lemmatize',
+		uri: uri,
 		method: 'POST',
 		json: {
 			texts: texts
 		}
 	}, (error, response, body) => {
 		if (error) {
+            winston.log('info', 'Could not contact the NLP server at address ' + uri);
+            winston.log('error', error);
 			return cb(error);
 		}
 
+		if (response.statusCode === 404) {
+            winston.log('error', 'Could not contact the NLP server at address ' + uri);
+
+            return cb({
+				status: 500,
+				error: 'Could not contact the NLP server, thus text upload service is not available. Sorry'
+            });
+		}
+
 		if (response.statusCode !== 200) {
+            winston.log('error', 'NLP server responded with status code ' + response.statusCode);
+
 			return cb('NLP server responded with status code ' + response.statusCode);
 		}
 

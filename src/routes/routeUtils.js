@@ -1,6 +1,6 @@
 
 module.exports = {
-    checkId: (req, pathScheme, messageFunc) => {
+    checkId: (req, messageFunc) => {
         try {
             return {
                 success: true,
@@ -9,16 +9,18 @@ module.exports = {
         } catch (castError) {
             return {
                 success: false,
-                error: {
-                    status: 401,
-                    details: {
-                        state: 'Error',
-                        schema: pathScheme,
-                        provided: req.method + ' ' + req.originalUrl,
-                        reason: messageFunc(req.param.id)
-                    }
-                }
+                error: generateError(req, 400, messageFunc(req.param.id))
             };
         }
+    },
+
+    generateError: (code, message) => {
+        return {
+            status: code,
+            details: {
+                state: 'Error',
+                reason: message
+            }
+        };
     }
 };

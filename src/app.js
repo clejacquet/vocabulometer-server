@@ -13,6 +13,7 @@ const app = express();
 const log = require('./logUtils')(winston);
 const loggerMiddleware = log.middleware;
 
+const publicDirectory = process.env.VCBM_DIST_PATH || './dist';
 
 const authPath = [
 	'/text'
@@ -21,7 +22,7 @@ const authPath = [
 module.exports = (cb) => {
 	// HTTP UTILS MIDDLEWARES LOADING
 
-	const publicDirectory = process.env.VCBM_DIST_PATH || './dist';
+
 
 	// Checking for the favicon
     let faviconMiddleware = null;
@@ -100,25 +101,15 @@ module.exports = (cb) => {
 
     // catch 404
 		app.use((req, res) => {
-            const dummy = null;
-            dummy();
-
-			// If it is an API call, send a JSON error message
-			if (req.originalUrl.startsWith('/api/')) {
-				const error = normalizeError(req, {
-					status: 404,
-					error: 'Error 404: Path provided not bound to any services'
-				});
-
-				return res.sendError(error)
-			}
-
-			// If it's not an API call, then just redirect to the Angular web app
-			res.sendFile(path.resolve(path.join(publicDirectory, 'index.html')));
+			notFound(req, res);
 		});
 
     // error handler
 		app.use((error, req, res, next) => {
+			if (error.status && error.status === 404) {
+				return notFound(req, res, error);
+			}
+
 			error = normalizeError(req, error);
 
 			// If it is a server error, VERY BAD
@@ -133,13 +124,36 @@ module.exports = (cb) => {
 	});
 };
 
+function notFound(req, res, error) {
+    // If it is an API call, send a JSON error message
+    if (req.originalUrl.startsWith('/api/')) {
+    	if (error === undefined) {
+            error = normalizeError(req, {
+                status: 404,
+                error: 'Error 404: Path provided not bound to any services'
+            });
+		} else {
+    		error = normalizeError(req, error);
+		}
+
+        return res.sendError(error);
+    }
+
+    // If it's not an API call, then just redirect to the Angular web app
+    res.sendFile(path.resolve(path.join(publicDirectory, 'index.html')));
+}
+
 function normalizeError(req, error) {
 	if (error.status === undefined) {
 		error.status = 500;
 	}
 
-	if (error.message === undefined) {
-		error.message = 'Server responded with error 500'
+	if (error.message !== undefined && error.error === undefined) {
+		error.error = error.message;
+	}
+
+	if (error.error === undefined) {
+        error.error = 'Server responded with error ' + error.status;
 	}
 
 	if (error.inner !== undefined) {
@@ -148,7 +162,7 @@ function normalizeError(req, error) {
 
 	return {
 		status: error.status,
-		error: error.message,
+		error: error.error,
 		details: (error.stack !== undefined) ?
             error.stack.toString().split('\n')
             : error.details,
@@ -157,7 +171,7 @@ function normalizeError(req, error) {
 }
 
 function formatError(req, error) {
-	error.details = req.app.get('env') === 'development' ?
+	error.details = (error.status !== 500 || req.app.get('env') !== 'production') ?
         error.details
         : undefined;
 

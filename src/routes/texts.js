@@ -5,6 +5,7 @@ const router = express.Router({
     strict: false
 });
 const utils = require('./routeUtils');
+const checkParameter = require('../policies/check-parameter');
 
 
 module.exports = (passport) => {
