@@ -4,11 +4,34 @@ const router = express.Router({
     mergeParams: false,
     strict: false
 });
-const utils = require('./routeUtils');
-const checkParameter = require('../policies/check-parameter');
+const check = require('../policies/check');
+const toObjectID = require('mongoose').Types.ObjectId;
 
 
 module.exports = (passport) => {
+    //  Sends the ID of a random text
+    //
+    // 	GET /api/texts/sample
+    // 	input-type: None
+    // 	output-type: JSON
+    //
+    //	output-structure: {
+    //		sample: String
+    //  }
+    router.get('/sample',
+        (req, res, next) => {
+            req.models.texts.getSample((err, sample) => {
+                if (err) {
+                    return next(err);
+                }
+
+                res.json({
+                    sample: sample
+                });
+            });
+        });
+
+
     //  Retrieves the specified text
     //
     // 	GET /api/texts/:id
@@ -28,20 +51,18 @@ module.exports = (passport) => {
 	//			}
 	//		]
 	//	}
-	router.get('/:id', passport.isLoggedIn, (req, res, next) => {
-        const check = utils.checkId(
-            req,
-            'GET /api/texts/:id',
-            (id) => '\'' + id + '\' is not a valid value for \':id\' query parameter'
-        );
-
-        if (!check.success) {
-            return next(check.error);
-        }
-
-	    const id = check.id;
-
-		req.models.texts.findOne({ _id: id }, (err, result) => {
+	router.get('/:id',
+        passport.isLoggedIn,
+        check.schema({
+            id: {
+                in: 'params',
+                errorMessage: 'Missing or incorrect id parameter',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
+        (req, res, next) => {
+		req.models.texts.findOne({ _id: req.data.id }, (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -67,13 +88,15 @@ module.exports = (passport) => {
 	// 	input-type: body, JSON
 	//  output-type: JSON
 	//
-	// 	input-structure: [
-	// 		{
-	// 			title: String,
-	// 			body: String,
-	// 			source: String
-	// 		}
-	// 	]
+	// 	input-structure: {
+    //      texts: [
+	// 		    {
+	// 			    title: String,
+	// 			    body: String,
+	// 			    source: String
+	// 		    }
+	// 	    ]
+    //  }
 	//
     // 	output-structure: [
     // 		{
@@ -96,8 +119,27 @@ module.exports = (passport) => {
 	//			_id: String
     // 		}
     // 	]
-	router.post('/', passport.isLoggedIn, (req, res, next) => {
-		req.models.texts.loadAndCreateTexts(req.body.texts, (err, texts) => {
+	router.post('/',
+        passport.isLoggedIn,
+        check.schema({
+            'texts.*.title': {
+                in: 'body',
+                errorMessage: 'Title parameter missing',
+                exists: true
+            },
+            'texts.*.body': {
+                in: 'body',
+                errorMessage: 'Body parameter missing',
+                exists: true
+            },
+            'texts.*.source': {
+                in: 'body',
+                errorMessage: 'Source parameter missing',
+                exists: true
+            }
+        }),
+        (req, res, next) => {
+		req.models.texts.loadAndCreateTexts(req.data.texts, (err, texts) => {
 			if (err) {
 				return next(err);
 			}
@@ -119,8 +161,22 @@ module.exports = (passport) => {
     //	output-structure: {
     //		success: Boolean
     //  }
-    router.put('/:id/text', passport.isLoggedIn, (req, res, next) => {
-        req.models.texts.loadAndModifyText(req.params.id, req.body.text, (err) => {
+    router.put('/:id/text',
+        passport.isLoggedIn,
+        check.schema({
+            text: {
+                in: 'body',
+                errorMessage: 'Text parameter missing',
+                exists: true
+            },
+            id: {
+                in: 'params',
+                errorMessage: 'ID parameter missing',
+                exists: true
+            }
+        }),
+        (req, res, next) => {
+        req.models.texts.loadAndModifyText(req.data.id, req.data.text, (err) => {
             if (err) {
                 return next(err);
             }
@@ -146,8 +202,22 @@ module.exports = (passport) => {
     //	output-structure: {
     //		success: Boolean
     //  }
-    router.put('/:id/title', passport.isLoggedIn, (req, res, next) => {
-        req.models.texts.modifyTitle(req.params.id, req.body.title, (err) => {
+    router.put('/:id/title',
+        passport.isLoggedIn,
+        check.schema({
+            title: {
+                in: 'body',
+                errorMessage: 'Title parameter missing',
+                exists: true
+            },
+            id: {
+                in: 'params',
+                errorMessage: 'ID parameter missing',
+                exists: true
+            }
+        }),
+        (req, res, next) => {
+        req.models.texts.modifyTitle(req.data.id, req.data.title, (err) => {
             if (err) {
                 return next(err);
             }
@@ -169,8 +239,17 @@ module.exports = (passport) => {
     //  output-structure: {
     //		success: Boolean
     //  }
-    router.delete('/:id', passport.isLoggedIn, (req, res, next) => {
-        req.models.texts.deleteOne({ _id: req.params.id }, (err) => {
+    router.delete('/:id',
+        passport.isLoggedIn,
+        check.schema({
+            id: {
+                in: 'params',
+                errorMessage: 'ID parameter missing',
+                exists: true
+            }
+        }),
+        (req, res, next) => {
+        req.models.texts.deleteOne({ _id: req.data.id }, (err) => {
             if (err) {
                 return next(err);
             }
@@ -204,8 +283,20 @@ module.exports = (passport) => {
     //			}
     //		]
     //  }
-    router.get('/', passport.isLoggedIn, (req, res, next) => {
-        const page = parseInt(req.query.page);
+    router.get('/',
+        passport.isLoggedIn,
+        check.schema({
+            page: {
+                in: 'query',
+                errorMessage: 'Page parameter missing',
+                exists: true,
+                isInt: true,
+                custom: { options: (value) => parseInt(value) >= 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
+        (req, res, next) => {
+        const page = parseInt(req.data.page);
 
         req.models.texts.count((err, count) => {
             if (err) {
@@ -247,7 +338,9 @@ module.exports = (passport) => {
     //			}
     //		]
     //  }
-    router.get('/last', passport.isLoggedIn, (req, res, next) => {
+    router.get('/last',
+        passport.isLoggedIn,
+        (req, res, next) => {
         req.models.texts.count((err2, count) => {
             if (err2) {
                 return next(err2);
@@ -264,28 +357,6 @@ module.exports = (passport) => {
                     lastPage: page,
                     texts: result
                 });
-            });
-        });
-    });
-
-
-    //  Sends the ID of a random text
-    //
-    // 	GET /api/texts/sample
-    // 	input-type: None
-    // 	output-type: JSON
-    //
-    //	output-structure: {
-    //		sample: String
-    //  }
-    router.get('/sample', (req, res, next) => {
-        req.models.texts.getSample((err, sample) => {
-            if (err) {
-                return next(err);
-            }
-
-            res.json({
-                sample: sample
             });
         });
     });

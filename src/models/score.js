@@ -1,3 +1,5 @@
+const winston = require('winston');
+
 module.exports = (mongoose, models) => {
 	return {
 		compute: (userId, limit, cb) => {
@@ -67,8 +69,6 @@ module.exports = (mongoose, models) => {
 				if (err) {
 					return cb(err);
 				}
-
-				winston.log('info', result);
 
 				const finalResults = result.map((wordScore) => ({word: wordScore._id, score: wordScore.score}));
 

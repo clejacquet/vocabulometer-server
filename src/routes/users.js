@@ -1,39 +1,57 @@
 const express = require('express');
 const router = express.Router({});
 const jwt = require('jsonwebtoken');
-const utils = require('./routeUtils');
-const winston = require('winston');
-const checkParameter = require('../policies/check-parameter');
+const check = require('../policies/check');
+const toObjectID = require('mongoose').Types.ObjectId;
 
 
 module.exports = (passport) => {
-	router.post('/:uid/word', (req, res, next) => {
-		const words = req.body.words || [req.body.word]
-			.map((word) => {
-				return word.replace(/[^a-zA-Z0-9-']/g, "").toLowerCase();
-			})
-			.filter((word) => {
-				return word !== ''
-			});
+	router.post('/:uid/word',
+        check.schema({
+            words: {
+                in: 'body',
+                errorMessage: 'words list parameter missing or incorrect',
+                exists: true,
+                isArray: true
+            },
+            'words.*': {
+                in: 'body',
+                sanitizer: value => value.toLowerCase()
+            },
+            uid: {
+                in: 'params',
+                errorMessage: 'uid parameter provided is incorrect',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
+        (req, res, next) => {
+            const words = req.data.words
+                .map((word) => {
+                    return word.replace(/[^a-zA-Z0-9-']/g, "").toLowerCase();
+                })
+                .filter((word) => {
+                    return word !== ''
+                });
 
-		req.models.users.addWords(words, req.params.uid, (err, result) => {
-			if (err) {
-				return next(err);
-			}
+            req.models.users.addWords(words, req.params.uid, (err, result) => {
+                if (err) {
+                    return next(err);
+                }
 
-			if (!result) {
-				res.status(404);
-				return res.json({
-					error: 'No user with provided id exists (id: \'' + req.params.uid + '\')'
-				});
-			}
+                if (!result) {
+                    res.status(404);
+                    return res.json({
+                        error: 'No user with provided id exists (id: \'' + req.params.uid + '\')'
+                    });
+                }
 
-			res.status(201);
-			res.json({
-				status: 'success'
-			});
-		});
-	});
+                res.status(201);
+                res.json({
+                    status: 'success'
+                });
+            });
+	    });
 
 
 	router.post('/auth/local',
@@ -53,7 +71,7 @@ module.exports = (passport) => {
 			});
 		});
 
-	router.post('/auth/logout', (req, res, next) => {
+	router.post('/auth/logout', (req, res) => {
 		req.logOut();
 		res.status(200).end();
 	});
@@ -100,9 +118,17 @@ module.exports = (passport) => {
     //	}
 	router.get('/current/stats/words_read',
 		passport.isLoggedIn,
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+		}),
 		(req, res, next) => {
-			req.models.users.getWordsPerDay(req.user._id, parseInt(req.query.limit), (err, result) => {
+			req.models.users.getWordsPerDay(req.user._id, parseInt(req.data.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -134,9 +160,17 @@ module.exports = (passport) => {
     //	}
 	router.get('/current/stats/new_words_read',
 		passport.isLoggedIn,
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getNewWordsPerDay(req.user._id, parseInt(req.query.limit), (err, result) => {
+			req.models.users.getNewWordsPerDay(req.user._id, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -169,9 +203,17 @@ module.exports = (passport) => {
     //	}
 	router.get('/current/stats/new_recent_words_read',
 		passport.isLoggedIn,
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getRecentNewWords(req.user._id, parseInt(req.query.limit), (err, result) => {
+			req.models.users.getRecentNewWords(req.user._id, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -204,9 +246,17 @@ module.exports = (passport) => {
     //	}
 	router.get('/current/hard_texts',
 		passport.isLoggedIn,
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getHardTexts(req.user._id, parseInt(req.query.limit), (err, result) => {
+			req.models.users.getHardTexts(req.user._id, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -239,9 +289,17 @@ module.exports = (passport) => {
     //	}
 	router.get('/current/easy_texts',
 		passport.isLoggedIn,
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getEasyTexts(req.user._id, parseInt(req.query.limit), (err, result) => {
+			req.models.users.getEasyTexts(req.user._id, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -254,7 +312,7 @@ module.exports = (passport) => {
 		});
 
 
-    //  Retrieves some easy texts for the current logged user ID (maximum retrieved = limit)
+    //  Retrieves some recommended texts for revising and for the current logged user ID (maximum retrieved = limit)
     //
     // 	GET /api/users/current/recommend
     // 	input-type: url_encoded
@@ -274,9 +332,17 @@ module.exports = (passport) => {
     //	}
 	router.get('/current/recommend',
 		passport.isLoggedIn,
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-		req.models.scores.compute(req.models.toObjectID(req.user._id), parseInt(req.query.limit), (err, result) => {
+		req.models.scores.compute(req.models.toObjectID(req.user._id), req.data.limit, (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -288,23 +354,20 @@ module.exports = (passport) => {
 		})
 	});
 
-	router.get('/:uid/similartexts', (req, res, next) => {
-		req.models.users.getSimilarTexts(req.models.toObjectID(req.params.uid), (err, result) => {
-			if (err) {
-				return next(err);
-			}
 
-			res.status(200);
-			res.json({
-				texts: result
-			});
-		});
-	});
 
 	router.get('/:uid/stats/words_read',
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getWordsPerDay(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			req.models.users.getWordsPerDay(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -317,9 +380,17 @@ module.exports = (passport) => {
 		});
 
 	router.get('/:uid/stats/new_words_read',
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getNewWordsPerDay(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			req.models.users.getNewWordsPerDay(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -331,10 +402,43 @@ module.exports = (passport) => {
 			});
 		});
 
+
+    //  Retrieves the new recently read words by the current logged user (maximum retrieved = limit)
+    //
+    // 	GET /api/users/:uid/stats/new_recent_words_read
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	words: [
+    // 			{
+    // 				_id: String,
+    // 				time: Date
+    // 			}
+    // 		]
+    //	}
 	router.get('/:uid/stats/new_recent_words_read',
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            },
+			uid: {
+            	in: 'params',
+                errorMessage: 'uid parameter provided is incorrect',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getRecentNewWords(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			req.models.users.getRecentNewWords(req.data.uid, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -347,9 +451,23 @@ module.exports = (passport) => {
 		});
 
 	router.get('/:uid/hard_texts',
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            },
+            uid: {
+                in: 'params',
+                errorMessage: 'uid parameter provided is incorrect',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getHardTexts(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			req.models.users.getHardTexts(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -362,9 +480,23 @@ module.exports = (passport) => {
 		});
 
 	router.get('/:uid/easy_texts',
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            },
+            uid: {
+                in: 'params',
+                errorMessage: 'uid parameter provided is incorrect',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.users.getEasyTexts(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			req.models.users.getEasyTexts(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -377,9 +509,23 @@ module.exports = (passport) => {
 		});
 
 	router.get('/:uid/recommend',
-        checkParameter.strictPositive('query', 'limit'),
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            },
+            uid: {
+                in: 'params',
+                errorMessage: 'uid parameter provided is incorrect',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
 		(req, res, next) => {
-			req.models.scores.compute(req.models.toObjectID(req.params.uid), parseInt(req.query.limit), (err, result) => {
+			req.models.scores.compute(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -388,18 +534,6 @@ module.exports = (passport) => {
 				res.json({
 					texts: result
 				});
-			})
-		});
-
-	router.post('/test',
-		checkParameter.body({
-			text: {
-				title: checkParameter.rules.string,
-				year: checkParameter.rules.strictPositive
-			}
-		}), (req, res) => {
-			res.json({
-				status: 'success'
 			});
 		});
 

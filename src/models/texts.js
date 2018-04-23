@@ -122,7 +122,7 @@ module.exports = (mongoose) => {
 			const paragraphs = texts[0];
 
 			const body = paragraphs;
-            const words = uniq([]
+            const words = _.uniq([]
                 .concat(...paragraphs.map(p => p.words))
                 .filter(w => w.lemma != null)
                 .map(w => w.lemma));

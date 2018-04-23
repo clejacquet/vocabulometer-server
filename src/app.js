@@ -49,14 +49,6 @@ module.exports = (cb) => {
 		saveUnitialized: false
 	}));
 
-	app.use((req, res, next) => {
-		res.sendError = (error) => {
-            res.status(error.status);
-            res.json(formatError(req, error));
-		};
-		next();
-	});
-
 	app.use(express.static(publicDirectory));
 
   	// MODELS LOADING
@@ -81,6 +73,13 @@ module.exports = (cb) => {
 				return res.redirect('/');
 			}
 
+			next();
+		});
+
+		app.use((req, res, next) => {
+			res.sendError = (err) => {
+				sendError(req, res, err);
+			};
 			next();
 		});
 
@@ -117,7 +116,9 @@ module.exports = (cb) => {
                 winston.log('error', error);
 			}
 
-			return res.sendError(error);
+
+
+			return sendError(req, res, error);
 		});
 
 		cb(app);
@@ -176,4 +177,9 @@ function formatError(req, error) {
         : undefined;
 
 	return error;
+}
+
+function sendError(req, res, error) {
+    res.status(error.status);
+    res.json(formatError(req, error));
 }
