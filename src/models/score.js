@@ -1,5 +1,3 @@
-const winston = require('winston');
-
 module.exports = (mongoose, models) => {
 	return {
 		compute: (userId, limit, cb) => {

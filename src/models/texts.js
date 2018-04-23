@@ -62,18 +62,6 @@ module.exports = (mongoose) => {
 		}
 	});
 
-	// INPUT: [
-	// 		{
-	// 			title: String,
-	// 			body: [
-	// 				{
-	// 					words: String[]
-	// 				}
-	// 			],
-	// 			source: String
-	// 		}
-	// ]
-	// OUTPUT: [{  }]
 	textSchema.statics.loadAndCreateTexts = function (texts, cb) {
 		const bodies = texts.map(text => text.body);
 

@@ -34,7 +34,7 @@ module.exports = (passport) => {
                     return word !== ''
                 });
 
-            req.models.users.addWords(words, req.params.uid, (err, result) => {
+            req.models.users.addWords(words, req.data.uid, (err, result) => {
                 if (err) {
                     return next(err);
                 }
@@ -42,7 +42,7 @@ module.exports = (passport) => {
                 if (!result) {
                     res.status(404);
                     return res.json({
-                        error: 'No user with provided id exists (id: \'' + req.params.uid + '\')'
+                        error: 'No user with provided id exists (id: \'' + req.data.uid + '\')'
                     });
                 }
 
@@ -450,6 +450,25 @@ module.exports = (passport) => {
 			});
 		});
 
+
+    //  Retrieves some hard texts for a given user ID (maximum retrieved = limit)
+    //
+    // 	GET /api/users/:uid/hard_texts
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	words: [
+    // 			{
+    // 				_id: String,
+    // 				time: Date
+    // 			}
+    // 		]
+    //	}
 	router.get('/:uid/hard_texts',
         check.schema({
             limit: {
@@ -467,7 +486,7 @@ module.exports = (passport) => {
             }
         }),
 		(req, res, next) => {
-			req.models.users.getHardTexts(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
+			req.models.users.getHardTexts(req.models.toObjectID(req.data.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -479,6 +498,25 @@ module.exports = (passport) => {
 			});
 		});
 
+
+    //  Retrieves some easy texts for a given user ID (maximum retrieved = limit)
+    //
+    // 	GET /api/users/:uid/easy_texts
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	words: [
+    // 			{
+    // 				_id: String,
+    // 				time: Date
+    // 			}
+    // 		]
+    //	}
 	router.get('/:uid/easy_texts',
         check.schema({
             limit: {
@@ -496,7 +534,7 @@ module.exports = (passport) => {
             }
         }),
 		(req, res, next) => {
-			req.models.users.getEasyTexts(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
+			req.models.users.getEasyTexts(req.models.toObjectID(req.data.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -508,6 +546,25 @@ module.exports = (passport) => {
 			});
 		});
 
+
+    //  Retrieves some recommended texts for revising for a given user ID (maximum retrieved = limit)
+    //
+    // 	GET /api/users/current/recommend
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	words: [
+    // 			{
+    // 				_id: String,
+    // 				time: Date
+    // 			}
+    // 		]
+    //	}
 	router.get('/:uid/recommend',
         check.schema({
             limit: {
@@ -525,7 +582,7 @@ module.exports = (passport) => {
             }
         }),
 		(req, res, next) => {
-			req.models.scores.compute(req.models.toObjectID(req.params.uid), req.data.limit, (err, result) => {
+			req.models.scores.compute(req.models.toObjectID(req.data.uid), req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
