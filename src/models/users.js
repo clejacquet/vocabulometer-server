@@ -1,5 +1,8 @@
 const bcrypt = require('bcrypt');
 const winston = require('winston');
+const fs = require('fs');
+const async = require('async');
+const _ = require('underscore');
 
 module.exports = (mongoose, models) => {
 	const userSchema = new mongoose.Schema({
@@ -278,6 +281,32 @@ module.exports = (mongoose, models) => {
 			}
 		], cb);
 	};
+
+	model.saveWordsFromQuizResult = (userId, result, cb) => {
+	    const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+        const end = levels.indexOf(result);
+
+        async.map(levels.slice(0, end + 1), (level, cb1) => {
+            fs.readFile('assets/cefr_levels/' + level + '.txt', 'utf8', (err, data) => {
+                if (err) {
+                    return cb1(err);
+                }
+
+                const words = data
+                    .replace(/\r/g, '')
+                    .split('\n');
+
+                cb1(undefined, words);
+            });
+        }, (err, results) => {
+            if (err) {
+                return cb(err);
+            }
+
+            model.addWords(_(results).flatten(1), userId, cb);
+        });
+    };
 
 	return model;
 };

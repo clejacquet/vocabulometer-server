@@ -6,6 +6,80 @@ const toObjectID = require('mongoose').Types.ObjectId;
 
 
 module.exports = (passport) => {
+    //  Save a list of words for the user of the given ID
+    //
+    // 	POST /api/users/current/word
+    // 	input-type: body, JSON
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //  	words: String[]
+    //	}
+    //
+    //  output-structure: {
+    //  	success: Boolean
+    //	}
+    router.post('/current/word',
+        passport.isLoggedIn,
+        check.schema({
+            words: {
+                in: 'body',
+                errorMessage: 'words list parameter missing or incorrect',
+                exists: true,
+                isArray: true
+            },
+            'words.*': {
+                in: 'body',
+                sanitizer: value => value.toLowerCase()
+            },
+            uid: {
+                in: 'params',
+                errorMessage: 'uid parameter provided is incorrect',
+                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
+                sanitizer: value => toObjectID(value)
+            }
+        }),
+        (req, res, next) => {
+            const words = req.data.words
+                .map((word) => {
+                    return word.replace(/[^a-zA-Z0-9-']/g, "").toLowerCase();
+                })
+                .filter((word) => {
+                    return word !== ''
+                });
+
+            req.models.users.addWords(words, req.user._id, (err, result) => {
+                if (err) {
+                    return next(err);
+                }
+
+                if (!result) {
+                    res.status(404);
+                    return res.json({
+                        error: 'No user with provided id exists (id: \'' + req.data.uid + '\')'
+                    });
+                }
+
+                res.status(201);
+                res.json({
+                    status: 'success'
+                });
+            });
+        });
+
+    //  Save a list of words for the currently logged user
+    //
+    // 	POST /api/users/:uid/word
+    // 	input-type: body, JSON
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //  	words: String[]
+    //	}
+    //
+    //  output-structure: {
+    //  	success: Boolean
+    //	}
 	router.post('/:uid/word',
         check.schema({
             words: {
@@ -54,6 +128,24 @@ module.exports = (passport) => {
 	    });
 
 
+    //  Authenticate the user with a pair username / password
+    //
+    // 	POST /api/users/auth/local
+    // 	input-type: body, JSON
+    //  output-type: JSON
+	//
+    //  input-structure: {
+	//  	username: String,
+	//  	password: String
+	//	}
+	//
+    //  output-structure: {
+    //  	user: {
+    // 			name: String,
+    // 			_id: String
+    // 		},
+	//  	token: String
+    //	}
 	router.post('/auth/local',
 		passport.authenticate('local', { session: false }),
 		(req, res, next) => {
@@ -71,6 +163,12 @@ module.exports = (passport) => {
 			});
 		});
 
+
+    //  Log out the user
+    //
+    // 	POST /api/users/auth/logout
+    // 	input-type: none
+    //  output-type: none
 	router.post('/auth/logout', (req, res) => {
 		req.logOut();
 		res.status(200).end();
@@ -237,10 +335,11 @@ module.exports = (passport) => {
     //	}
     //
     //  output-structure: {
-    //  	words: [
+    //  	texts: [
     // 			{
     // 				_id: String,
-    // 				time: Date
+    // 				title: String,
+	//				score: Number
     // 			}
     // 		]
     //	}
@@ -280,13 +379,15 @@ module.exports = (passport) => {
     //	}
     //
     //  output-structure: {
-    //  	words: [
-    // 			{
-    // 				_id: String,
-    // 				time: Date
-    // 			}
-    // 		]
-    //	}
+    //		texts: [
+	// 			{
+	// 				_id: String,
+	// 				title: String,
+	//				score: Number
+	// 			}
+	// 		]
+	// }
+
 	router.get('/current/easy_texts',
 		passport.isLoggedIn,
         check.schema({
@@ -323,13 +424,14 @@ module.exports = (passport) => {
     //	}
     //
     //  output-structure: {
-    //  	words: [
+    //		texts: [
     // 			{
     // 				_id: String,
-    // 				time: Date
+    // 				title: String,
+    //				score: Number
     // 			}
     // 		]
-    //	}
+    // }
 	router.get('/current/recommend',
 		passport.isLoggedIn,
         check.schema({
@@ -355,7 +457,68 @@ module.exports = (passport) => {
 	});
 
 
+    //  Save words list according to the quiz result provided
+    //
+    // 	POST /api/users/current/quiz_result
+    // 	input-type: body, JSON
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		result: String // among the following values: 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
+    //	}
+    //
+    //  output-structure: {
+    //		success: Boolean
+    // }
+    router.post('/current/quiz_result',
+        passport.isLoggedIn,
+        check.schema({
+            result: {
+                in: 'body',
+                errorMessage: 'result parameter provided is incorrect',
+                exists: true,
+                custom: { options: (value) => ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(value) }
+            }
+        }),
+        (req, res, next) => {
+            req.models.users.saveWordsFromQuizResult(req.user._id, req.data.result, (err, result) => {
+                if (err) {
+                    return next(err);
+                }
 
+                if (!result) {
+                    res.status(404);
+                    return res.json({
+                        error: 'No user with provided id exists (id: \'' + req.data.uid + '\')'
+                    });
+                }
+
+                res.status(201);
+                res.json({
+                    status: 'success'
+                });
+            });
+        });
+
+
+    //  Retrieves the provided ID's user's count of read words every day since the two last weeks
+    //
+    // 	GET /api/users/:uid/stats/words_read
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	days: [
+    // 			{
+    // 				_id: Date,
+    // 				count: Number
+    // 			}
+    // 		]
+    //	}
 	router.get('/:uid/stats/words_read',
         check.schema({
             limit: {
@@ -379,6 +542,25 @@ module.exports = (passport) => {
 			});
 		});
 
+
+    //  Retrieves the provided ID's user's count of new read words every day (maximum day count retrieved = limit)
+    //
+    // 	GET /api/users/:uid/stats/new_words_read
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	days: [
+    // 			{
+    // 				_id: Date,
+    // 				count: Number
+    // 			}
+    // 		]
+    //	}
 	router.get('/:uid/stats/new_words_read',
         check.schema({
             limit: {
@@ -462,13 +644,14 @@ module.exports = (passport) => {
     //	}
     //
     //  output-structure: {
-    //  	words: [
+    //		texts: [
     // 			{
     // 				_id: String,
-    // 				time: Date
+    // 				title: String,
+    //				score: Number
     // 			}
     // 		]
-    //	}
+    // }
 	router.get('/:uid/hard_texts',
         check.schema({
             limit: {
@@ -510,13 +693,14 @@ module.exports = (passport) => {
     //	}
     //
     //  output-structure: {
-    //  	words: [
+    //		texts: [
     // 			{
     // 				_id: String,
-    // 				time: Date
+    // 				title: String,
+    //				score: Number
     // 			}
     // 		]
-    //	}
+    // }
 	router.get('/:uid/easy_texts',
         check.schema({
             limit: {
@@ -558,13 +742,14 @@ module.exports = (passport) => {
     //	}
     //
     //  output-structure: {
-    //  	words: [
+    //		texts: [
     // 			{
     // 				_id: String,
-    // 				time: Date
+    // 				title: String,
+    //				score: Number
     // 			}
     // 		]
-    //	}
+    // }
 	router.get('/:uid/recommend',
         check.schema({
             limit: {
