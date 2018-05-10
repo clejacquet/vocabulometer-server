@@ -8,6 +8,7 @@ module.exports = (mongoose, models) => {
 	const userSchema = new mongoose.Schema({
 		name: String,
 		password: String,
+        hasVocabSaved: Boolean,
 		words: [{
 			word: String,
 			time: { type: Date, default: Date.now }
@@ -19,7 +20,8 @@ module.exports = (mongoose, models) => {
 			.then((hash) => {
 				this.create({
 					name: username,
-					password: hash
+					password: hash,
+					hasVocabSaved: false
 				}, (err, res) => {
 					if (err) {
 						return cb(err);
@@ -287,6 +289,10 @@ module.exports = (mongoose, models) => {
 
         const end = levels.indexOf(result);
 
+        if (end === -1) {
+            return cb(undefined, []);
+        }
+
         async.map(levels.slice(0, end + 1), (level, cb1) => {
             fs.readFile('assets/cefr_levels/' + level + '.txt', 'utf8', (err, data) => {
                 if (err) {
@@ -304,8 +310,25 @@ module.exports = (mongoose, models) => {
                 return cb(err);
             }
 
-            model.addWords(_(results).flatten(1), userId, cb);
+            async.parallel([
+				(cb2) => model.addWords(_(results).flatten(1), userId, cb2),
+				(cb2) => {
+                    model
+                        .where({ _id: userId })
+                        .update({ hasVocabSaved: true })
+                        .then(() => cb2())
+                        .catch((err) => cb2(err));
+				}
+			], (err) => {
+            	if (err) {
+            		return cb(err);
+				}
+
+				cb();
+			});
         });
+
+
     };
 
 	return model;

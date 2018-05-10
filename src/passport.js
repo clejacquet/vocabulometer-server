@@ -34,7 +34,8 @@ module.exports = (models) => {
 				}
 				return done(null, {
 					_id: user._id,
-					name: user.name
+					name: user.name,
+					hasVocabSaved: user.hasVocabSaved
 				});
 			});
 		});
@@ -58,6 +59,7 @@ function deserialize(req, res, next) {
         .findOne({ name: req.user.id })
         .select({
             name: 1,
+			hasVocabSaved: 1,
             _id: 1
         })
         .exec((err, result) => {

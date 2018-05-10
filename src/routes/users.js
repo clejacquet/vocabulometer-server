@@ -464,7 +464,7 @@ module.exports = (passport) => {
     //  output-type: JSON
     //
     //  input-structure: {
-    //		result: String // among the following values: 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
+    //		result: String // among the following values: 'Z', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
     //	}
     //
     //  output-structure: {
@@ -477,20 +477,13 @@ module.exports = (passport) => {
                 in: 'body',
                 errorMessage: 'result parameter provided is incorrect',
                 exists: true,
-                custom: { options: (value) => ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(value) }
+                custom: { options: (value) => ['Z', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(value) }
             }
         }),
         (req, res, next) => {
-            req.models.users.saveWordsFromQuizResult(req.user._id, req.data.result, (err, result) => {
+            req.models.users.saveWordsFromQuizResult(req.user._id, req.data.result, (err) => {
                 if (err) {
                     return next(err);
-                }
-
-                if (!result) {
-                    res.status(404);
-                    return res.json({
-                        error: 'No user with provided id exists (id: \'' + req.data.uid + '\')'
-                    });
                 }
 
                 res.status(201);
