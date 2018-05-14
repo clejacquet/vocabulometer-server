@@ -53,7 +53,11 @@ module.exports = (cb) => {
 
   	// MODELS LOADING
 
-	require('./models')((models) => {
+	require('./models')((err, models) => {
+		if (err) {
+			return winston.log('error', err);
+		}
+
 		app.use((req, res, next) => {
 			req.models = models;
 			next();
@@ -90,9 +94,11 @@ module.exports = (cb) => {
 
 		const users = require('./routes/users')(passport);
 		const texts = require('./routes/texts')(passport);
+		const datasets = require('./routes/datasets')(passport, models.recommenders, models.modules);
 
 		router.use('/users', users);
 		router.use('/texts', texts);
+		router.use('/datasets', datasets);
 		app.use('/api/', router);
 
 
