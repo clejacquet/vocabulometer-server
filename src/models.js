@@ -1,45 +1,75 @@
 const moduleLoader = require('./modules/moduleLoader');
 
-const mongoose = require('mongoose');
-mongoose.Promise = require('bluebird');
+const Mongoose = require('mongoose').Mongoose;
+Mongoose.Promise = require('bluebird');
 const winston = require('winston');
+const async = require('async');
 
 
 module.exports = (cb) => {
-    const connectionString = 'mongodb://' + (process.env.MONGO_ADDRESS || 'mongo/vocabulometer');
+    const tasks = [
+        (cb1) => {
+            const connectionString = 'mongodb://' + (process.env.MONGO_ADDRESS || 'mongo/vocabulometer');
 
-	mongoose.connect(connectionString, {
-		user: 'clejacquet',
-		pass: 'clejacquet-imp'
-	});
+            const mongoose = new Mongoose();
+            mongoose.connect(connectionString, {
+                user: 'clejacquet',
+                pass: 'clejacquet-imp'
+            })
+                .then(() => cb1(undefined, mongoose))
+                .catch((err) => cb1(err));
+        },
 
-	const db = mongoose.connection;
-	db.on('error', (err) => {
-		winston.log('error', 'Connection error: %s', err);
-	});
+        (cb2) => {
+            const connectionString = 'mongodb://' + (process.env.MONGO_TEXTS_ADDRESS || 'mongo/vocabulometer-texts');
 
-	db.once('open', () => {
-		const models = {};
+            const mongoose = new Mongoose();
+            mongoose.connect(connectionString, {
+                user: 'clejacquet',
+                pass: 'clejacquet-imp'
+            })
+                .then(() => cb2(undefined, mongoose))
+                .catch((err) => cb2(err));
+        },
+    ];
 
-		models.toObjectID = id => mongoose.Types.ObjectId(id);
+    async.parallel(tasks, (err, connections) => {
+        if (err) {
+            winston.log('error', 'Connection error: %s', err);
+            return cb(err);
+        }
 
-		models.texts = require('./models/texts')(mongoose, models);
-		models.users = require('./models/users')(mongoose, models);
-		models.scores = require('./models/score')(mongoose, models);
-		models.userWordScores = require('./models/userWordScores')(mongoose, models);
+        const models = {};
 
-		models.recommenders = {
-			easy: (dataset, cb) => cb(undefined, 'easy:' + dataset),
-			hard: (dataset, cb) => cb(undefined, 'hard:' + dataset),
-			review: (dataset, cb) => cb(undefined, 'review:' + dataset)
-		};
+        models.toObjectID = id => connections[0].Types.ObjectId(id);
 
-		moduleLoader((err, modules) => {
-			if (err) {
-				return cb(err);
-			}
-			models.modules = modules;
+        models.texts = require('./models/texts')(connections[1], models);
+
+        models.users = require('./models/users')(connections[0], models);
+        models.scores = require('./models/score')(connections[0], models);
+        models.userWordScores = require('./models/userWordScores')(connections[0], models);
+
+        models.recommenders = {
+            easy: require('./recommenders/easy'),
+            hard: require('./recommenders/hard'),
+            review: require('./recommenders/review')
+        };
+
+        moduleLoader(models, (err, modules) => {
+            if (err) {
+                return cb(err);
+            }
+            models.modules = modules;
+            models.datasets = {};
+
+            const datasetsModel = require('./models/datasets');
+
+            Object.values(modules).map((module) => {
+                models.datasets[module.name] = datasetsModel(module.name, connections[0]);
+            });
+
+
             cb(undefined, models);
-		});
-	});
+        });
+    });
 };

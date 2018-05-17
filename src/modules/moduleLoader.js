@@ -29,7 +29,7 @@ const getDirs = function(rootDir, cb) {
     });
 };
 
-const out = (cb) => {
+const out = (models, cb) => {
     getDirs('src/modules', (err, dirs) => {
         if (err) {
             return cb(err);
@@ -37,8 +37,8 @@ const out = (cb) => {
 
         const moduleList = dirs
             .map(dir => {
-                const Module = require(path.resolve('src/modules/' + dir + '/module'));
-                return new Module(dir);
+                const Module = require(path.resolve('src/modules/' + dir + '/moduleIndex'));
+                return new Module(dir, models);
             });
 
         const modules = {};

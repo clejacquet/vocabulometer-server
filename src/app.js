@@ -94,7 +94,7 @@ module.exports = (cb) => {
 
 		const users = require('./routes/users')(passport);
 		const texts = require('./routes/texts')(passport);
-		const datasets = require('./routes/datasets')(passport, models.recommenders, models.modules);
+		const datasets = require('./routes/datasets')(passport, models);
 
 		router.use('/users', users);
 		router.use('/texts', texts);

@@ -7,15 +7,15 @@ const router = express.Router({
 
 const check = require('../policies/check');
 
-module.exports = (passport, recommenders, modules) => {
-    Object.keys(modules).forEach((key) => {
+module.exports = (passport, models) => {
+    Object.keys(models.modules).forEach((key) => {
         const subRouter = express.Router({
             caseSensitive: false,
             mergeParams: false,
             strict: false
         });
 
-        module = modules[key];
+        const module = models.modules[key];
 
         subRouter.post('/',
             passport.isLoggedIn,
@@ -23,11 +23,13 @@ module.exports = (passport, recommenders, modules) => {
                 uri: {
                     in: 'body',
                     errorMessage: 'URI parameter not provided',
-                    exists: true
+                    exists: true,
+                    custom: { options: (value) => typeof value === 'string' || Array.isArray(value) },
+                    sanitizer: value => (Array.isArray(value)) ? value : [value]
                 }
             }),
             (req, res, next) => {
-                module.save([req.data.uri], (err, result) => {
+                module.save(req.data.uri, (err, result) => {
                     if (err) {
                         return next(err);
                     }
@@ -45,22 +47,22 @@ module.exports = (passport, recommenders, modules) => {
                     in: 'query',
                     errorMessage: 'Recommender parameter not provided or not existing',
                     exists: true,
-                    custom: { options: (value) => recommenders.hasOwnProperty(value) },
-                    sanitizer: value => recommenders[value]
+                    custom: { options: (value) => models.recommenders.hasOwnProperty(value) },
+                    sanitizer: value => models.recommenders[value]
                 }
             }),
             (req, res, next) => {
                 const recommender = req.data.recommender;
 
-                recommender(key, (err, text) => {
+                recommender(req.models.users, req.user._id, req.models.datasets[module.name], 6, (err, texts) => {
                     if (err) {
                         return next(err);
                     }
 
                     res.json({
-                        out: text
+                        out: texts
                     })
-                })
+                });
             });
 
         router.use('/' + key, subRouter);
