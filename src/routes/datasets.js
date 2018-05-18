@@ -17,6 +17,26 @@ module.exports = (passport, models) => {
 
         const module = models.modules[key];
 
+        //  Indexes given URI of documents for the recommender system
+        //  Path parameter :dataset should be the dataset module name
+        //
+        // 	POST /api/datasets/:dataset
+        // 	input-type: body, JSON
+        //  output-type: JSON
+        //
+        //  input-structure: {
+        //		uri: String[]
+        //	}
+        //
+        //  output-structure: {
+        // 		result: [
+        // 			{
+        //              words: String[],
+        // 				uri: String,
+        // 				title: String
+        // 			}
+        // 		]
+        // }
         subRouter.post('/',
             passport.isLoggedIn,
             check.schema({
@@ -40,9 +60,37 @@ module.exports = (passport, models) => {
                 })
             });
 
+        //  Recommends some texts (maximum retrieved = limit)
+        //  Path parameter :dataset should be the dataset module name
+        //
+        // 	GET /api/datasets/:dataset/recommendation
+        // 	input-type: url_encoded
+        //  output-type: JSON
+        //
+        //  input-structure: {
+        //		limit: Number,
+        //      recommender: String
+        //	}
+        //
+        //  output-structure: {
+        //		texts: [
+        // 			{
+        // 				uri: String,
+        // 				title: String,
+        //				score: Number
+        // 			}
+        // 		]
+        // }
         subRouter.get('/recommendation',
             passport.isLoggedIn,
             check.schema({
+                limit: {
+                    in: 'query',
+                    errorMessage: 'limit parameter provided is incorrect',
+                    isInt: true,
+                    custom: { options: (value) => parseInt(value) > 0 },
+                    sanitizer: value => parseInt(value)
+                },
                 recommender: {
                     in: 'query',
                     errorMessage: 'Recommender parameter not provided or not existing',
@@ -54,13 +102,13 @@ module.exports = (passport, models) => {
             (req, res, next) => {
                 const recommender = req.data.recommender;
 
-                recommender(req.models.users, req.user._id, req.models.datasets[module.name], 6, (err, texts) => {
+                recommender(req.models.users, req.user._id, req.models.datasets[module.name], req.data.limit, (err, texts) => {
                     if (err) {
                         return next(err);
                     }
 
                     res.json({
-                        out: texts
+                        texts: texts
                     })
                 });
             });

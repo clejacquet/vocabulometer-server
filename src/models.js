@@ -43,11 +43,9 @@ module.exports = (cb) => {
 
         models.toObjectID = id => connections[0].Types.ObjectId(id);
 
-        models.texts = require('./models/texts')(connections[1], models);
-
         models.users = require('./models/users')(connections[0], models);
-        models.scores = require('./models/score')(connections[0], models);
-        models.userWordScores = require('./models/userWordScores')(connections[0], models);
+
+        models.texts = require('./models/texts')(connections[1], models);
 
         models.recommenders = {
             easy: require('./recommenders/easy'),

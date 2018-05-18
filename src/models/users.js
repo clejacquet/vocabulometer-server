@@ -44,69 +44,6 @@ module.exports = (mongoose, models) => {
 
 	const model = mongoose.model('User', userSchema);
 
-	function similarTexts(userId, sort, limit, cb) {
-		try {
-			models.users.aggregate([
-				{
-					$match: {
-						_id: userId
-					}
-				},
-				{
-					$unwind: '$words'
-				},
-				{
-					$group: {
-						_id: '$words.word',
-						count: { $sum: 1 },
-						last_time: {
-							$max: '$words.time'
-						}
-					}
-				},
-				{
-					$sort: {
-						count: -1
-					}
-				},
-				{
-					$group: {
-						_id: 0,
-						values: { $push: "$_id" }
-					}
-				}
-			]).cursor({ batchSize: 1000 }).exec().next().then(values => {
-				if (!values) {
-					return cb(null, {});
-				}
-
-				models.texts.aggregate([
-					{
-						$sample: { size: 100 }
-					},
-					{
-						$project: {
-							title: "$text.title",
-							score: {
-								$divide: [ { $size: { $setIntersection: [ "$text.words", values.values ] } }, { $size: "$text.words" } ]
-							}
-						}
-					},
-					{
-						$sort: {
-							score: sort
-						}
-					},
-					{
-						$limit: limit
-					}
-				], cb);
-			});
-		} catch( err ){
-			winston.log('error', err);
-		}
-	}
-
 	model.findOneOrCreate = (condition, doc, cb) => {
 		model.findOne(condition, (err, result) => {
 			return result
@@ -132,18 +69,6 @@ module.exports = (mongoose, models) => {
 		} catch( err ){
 			winston.log('error', err);
 		}
-	};
-
-	model.getSimilarTexts = (userId, cb) => {
-		similarTexts(userId, -1, 100, cb);
-	};
-
-	model.getEasyTexts = (userId, count, cb) => {
-		similarTexts(userId, -1, count, cb);
-	};
-
-	model.getHardTexts = (userId, count, cb) => {
-		similarTexts(userId, 1, count, cb);
 	};
 
 	model.getWordsPerDay = (userId, count, cb) => {

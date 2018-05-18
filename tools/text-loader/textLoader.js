@@ -56,11 +56,15 @@ async.parallel(tasks, (err, result) => {
 
     const chunkTasks = textChunks.map((textChunk, i) => {
         return cb => {
-            request.post('http://10.127.11.133/api/texts', {
-                json: {
-                    texts: textChunk
+            const options = {
+                url: 'http://localhost:4100/api/texts',
+                json: { texts: textChunk },
+                headers: {
+                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IkNsw6ltZW50IiwiaWF0IjoxNTI2NTMxNzI1LCJleHAiOjE1MjcxMzY1MjV9.QG_IomhnWZq56zFYpqML-BDk2tfTwCiLNSVFNgbjZxc'
                 }
-            }, (err, response, body) => {
+            };
+
+            request.post(options, (err, response, body) => {
                 if (err) {
                     cb(err);
                 } else if (!(response.statusCode >= 200 && response.statusCode < 300)) {

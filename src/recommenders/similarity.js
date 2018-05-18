@@ -36,11 +36,12 @@ module.exports = (usersModel, userId, dataset, sort, limit, cb) => {
 
             dataset.aggregate([
                 {
-                    $sample: { size: 300 }
+                    $sample: { size: 150 }
                 },
                 {
                     $project: {
                         uri: 1,
+                        title: 1,
                         score: {
                             $divide: [ { $size: { $setIntersection: [ "$words", values.values ] } }, { $size: "$words" } ]
                         }
