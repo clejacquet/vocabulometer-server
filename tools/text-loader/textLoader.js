@@ -60,7 +60,7 @@ async.parallel(tasks, (err, result) => {
                 url: 'http://localhost:4100/api/texts',
                 json: { texts: textChunk },
                 headers: {
-                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IkNsw6ltZW50IiwiaWF0IjoxNTI2NTMxNzI1LCJleHAiOjE1MjcxMzY1MjV9.QG_IomhnWZq56zFYpqML-BDk2tfTwCiLNSVFNgbjZxc'
+                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IkNsw6ltZW50IiwiaWF0IjoxNTI4MDc4NTk0LCJleHAiOjE1Mjg2ODMzOTR9.G5Z70CHXvxZ9Q61753OltHuVbn8tiSwshCsi-Lo3qA4'
                 }
             };
 

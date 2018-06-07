@@ -94,10 +94,12 @@ module.exports = (cb) => {
 
 		const users = require('./routes/users')(passport);
 		const texts = require('./routes/texts')(passport);
+		const admin = require('./routes/admin')(passport);
 		const datasets = require('./routes/datasets')(passport, models);
 
 		router.use('/users', users);
 		router.use('/texts', texts);
+		router.use('/admin', admin);
 		router.use('/datasets', datasets);
 		app.use('/api/', router);
 

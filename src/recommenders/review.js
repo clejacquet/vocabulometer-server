@@ -8,6 +8,14 @@ module.exports = (usersModel, userId, dataset, limit, cb) => {
             }
         },
         {
+            "$lookup": {
+                from: "words_en",
+                localField: "_id",
+                foreignField: "userId",
+                as: "words"
+            }
+        },
+        {
             $unwind: '$words'
         },
         {

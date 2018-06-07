@@ -3,3 +3,5 @@ dist/
 .idea/
 *.log
 tools/
+.credentials/
+client_secret.json

@@ -6,7 +6,7 @@ const toObjectID = require('mongoose').Types.ObjectId;
 
 
 module.exports = (passport) => {
-    //  Save a list of words for the user of the given ID
+    //  Save a list of words for the user currently logged
     //
     // 	POST /api/users/current/word
     // 	input-type: body, JSON
@@ -31,12 +31,6 @@ module.exports = (passport) => {
             'words.*': {
                 in: 'body',
                 sanitizer: value => value.toLowerCase()
-            },
-            uid: {
-                in: 'params',
-                errorMessage: 'uid parameter provided is incorrect',
-                custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
-                sanitizer: value => toObjectID(value)
             }
         }),
         (req, res, next) => {
@@ -324,6 +318,20 @@ module.exports = (passport) => {
 		});
 
 
+	router.get('/current/quiz',
+        passport.isLoggedIn,
+        (req, res, next) => {
+	        req.models.users.getQuiz((err, result) => {
+	            if (err) {
+	                return next(err);
+                }
+
+                res.status(200);
+                res.json(result);
+            });
+        });
+
+
     //  Save words list according to the quiz result provided
     //
     // 	POST /api/users/current/quiz_result
@@ -348,7 +356,19 @@ module.exports = (passport) => {
             }
         }),
         (req, res, next) => {
-            req.models.users.saveWordsFromQuizResult(req.user._id, req.data.result, (err) => {
+            const cefr210 = {
+                'Z':  0,
+                'A1': 1,
+                'A2': 1,
+                'B1': 2,
+                'B2': 3,
+                'C1': 6,
+                'C2': 10
+            };
+
+            const level = cefr210[req.data.result];
+
+            req.models.users.saveWordsFromQuizResult(req.user._id, level, (err) => {
                 if (err) {
                     return next(err);
                 }

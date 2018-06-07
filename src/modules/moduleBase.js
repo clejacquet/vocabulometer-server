@@ -14,6 +14,9 @@ class BaseModule {
         async.parallel(urls.map((uri) => {
             return (cb1) => this.loadUri(uri, (err, text) => {
                 if (err) {
+                    if (err.status >= 400 && err.status < 500) {
+                        return cb1(undefined, err.error);
+                    }
                     return cb1(err);
                 }
 
@@ -34,7 +37,11 @@ class BaseModule {
                 return cb(err);
             }
 
-            texts = texts.filter(text => text !== undefined);
+            texts = texts.map((text, id) => ({ uri: urls[id], result: (text !== undefined) ? text : 'Already existing'}));
+
+            if (texts.length === 0) {
+                return cb(undefined, 'No uri saved');
+            }
 
             cb(undefined, texts);
         })

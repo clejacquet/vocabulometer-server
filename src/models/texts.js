@@ -1,48 +1,8 @@
-const request = require('request');
 const async = require('async');
 const _ = require('underscore');
-const winston = require('winston');
 
-function compute(texts, cb) {
-	const uri = 'http://' + (process.env.NLP_ADDRESS || 'nlp') + '/vocabulometer/lemmatize';
-	request({
-		uri: uri,
-		method: 'POST',
-		json: {
-			texts: texts
-		}
-	}, (error, response, body) => {
-		if (error) {
-            winston.log('info', 'Could not contact the NLP server at address ' + uri);
-            winston.log('error', error);
-			return cb(error);
-		}
 
-		if (response.statusCode === 404) {
-            winston.log('error', 'Could not contact the NLP server at address ' + uri);
-
-            return cb({
-				status: 500,
-				error: 'Could not contact the NLP server, thus text upload service is not available. Sorry'
-            });
-		}
-
-		if (response.statusCode !== 200) {
-            winston.log('error', 'NLP server responded with status code ' + response.statusCode);
-
-			return cb('NLP server responded with status code ' + response.statusCode);
-		}
-
-		cb(null, body.texts.map(text => text.result.map((paragraph) => {
-            return {
-                interWords: paragraph.interWords,
-                words: paragraph.words
-            }
-        })));
-	});
-}
-
-module.exports = (mongoose) => {
+module.exports = (mongoose, models) => {
 	const paragraphWordSchema = new mongoose.Schema({
         raw: String,
         lemma: String
@@ -58,6 +18,8 @@ module.exports = (mongoose) => {
 			title: String,
 			body: [paragraphSchema],
 			words: [String],
+            unrecognized: [String],
+            unrecognizedRate: Number,
 			source: String
 		}
 	});
@@ -65,7 +27,7 @@ module.exports = (mongoose) => {
 	textSchema.statics.loadAndCreateTexts = function (texts, cb) {
 		const bodies = texts.map(text => text.body);
 
-        compute(bodies, (err, computedBodies) => {
+        models.nlp.compute(bodies, (err, computedBodies) => {
             if (err) {
                 return cb(err);
             }
@@ -85,11 +47,25 @@ module.exports = (mongoose) => {
                         .filter(w => w.lemma != null)
                         .map(w => w.lemma));
 
+                    const unrecognized = _.uniq([]
+                        .concat(...text.body.map(p => p.unrecognized)));
+
+                    const unrecognizedRate = text.body
+						.map(p => p.unrecognizedRate)
+						.reduce((acc, cur) => acc + cur / text.body.length, 0);
+
+                    text.body = text.body.map(p => ({
+                        words: p.words,
+						interWords: p.interWords
+					}));
+
                     this.create({
                         text: {
                             title: text.title,
                             body: text.body,
                             words: words,
+							unrecognized: unrecognized,
+                            unrecognizedRate: unrecognizedRate,
                             source: text.source
                         }
                     }, cb);
@@ -102,7 +78,7 @@ module.exports = (mongoose) => {
 	};
 
 	textSchema.statics.loadAndModifyText = function (id, text, cb) {
-		compute([text], (err, texts) => {
+		models.nlp.compute([text], (err, texts) => {
 			if (err) {
 				return cb(err);
 			}

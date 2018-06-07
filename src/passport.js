@@ -12,11 +12,8 @@ module.exports = (models) => {
 
 	passport.deserializeUser(function(user, done) {
 		models.users
-			.findOne({ name: user.name })
-			.select({
-				name: 1,
-				_id: 1
-			}).exec(done);
+			.findOne({ name: user.name }, ['name', 'levels', '_id'])
+			.exec(done);
 	});
 
 	passport.use(new LocalStrategy((username, password, done) => {
@@ -35,7 +32,7 @@ module.exports = (models) => {
 				return done(null, {
 					_id: user._id,
 					name: user.name,
-					hasVocabSaved: user.hasVocabSaved
+					levels: user.level
 				});
 			});
 		});
@@ -56,12 +53,7 @@ module.exports = (models) => {
 
 function deserialize(req, res, next) {
     req.models.users
-        .findOne({ name: req.user.id })
-        .select({
-            name: 1,
-			hasVocabSaved: 1,
-            _id: 1
-        })
+        .findOne({ name: req.user.id }, ['name', 'levels', '_id'])
         .exec((err, result) => {
             if (err) {
                 return next(err);
