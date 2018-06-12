@@ -19,11 +19,11 @@ const authPath = [
 	'/text'
 ];
 
+// IMPORTANT
+// This file implements the backbone of the Express app. Not so interesting,
+// only important to dig into it in case of a massive refactor
+
 module.exports = (cb) => {
-	// HTTP UTILS MIDDLEWARES LOADING
-
-
-
 	// Checking for the favicon
     let faviconMiddleware = null;
 	try {

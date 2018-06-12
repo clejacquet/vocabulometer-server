@@ -1,5 +1,7 @@
 const onFinished = require('on-finished');
 
+// Changing a bit how Winston logging library works to suit the logging system I want
+
 module.exports = (winston) => {
     winston.configure({
         transports: [
