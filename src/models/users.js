@@ -11,37 +11,12 @@ const computeVocabulary = require('./aggregations/computeVocabulary');
 
 
 module.exports = (mongoose, models) => {
-    const levelItem = new mongoose.Schema({
-		level: Number,
-        score: {
-            type: Number,
-            default: 0,
-            optional: false
-        },
-		ratio: {
-        	type: Number,
-			default: 0,
-			optional: false
-		}
-    }, { _id: false });
-
-    const knownItem = new mongoose.Schema({
-        word: String,
-        level: Number,
-        status: Number
-    }, { _id: false });
 
 	const userSchema = new mongoose.Schema({
 		name: String,
 		password: String,
-        levels: [levelItem],
-		role: String,
-        known: [knownItem],
+		role: String
 	});
-
-    const wordsRead = {
-        english: require('./wordsEnglish')(mongoose, models)
-    };
 
     userSchema.methods.validPassword = function (password, cb) {
         bcrypt.compare(password, this.password)
@@ -51,6 +26,8 @@ module.exports = (mongoose, models) => {
             cb(err);
         });
     };
+
+    userSchema.statics.wordResults = require('./wordResults')(mongoose, models);
 
     userSchema.statics.storeUser = function (username, password, cb) {
         bcrypt.hash(password, 10)
@@ -62,52 +39,101 @@ module.exports = (mongoose, models) => {
                     if (err) {
                         return cb(err);
                     }
-                    cb(null, res);
+                    cb(null, {
+                        _id: res._id,
+                        name: res.name,
+                        isNew: true
+                    });
                 });
             }).catch((err) => {
             cb(err);
         });
     };
 
-    userSchema.statics.getScorePerLevels = function(userId, cb) {
-        wordsRead.english.aggregate(levelScore(userId),
-			(err, levels) => {
+    const defaultScore = () => ({
+        value: 0,
+        apprentice: 0,
+        guru: 0,
+        master: 0,
+        enlightened: 0
+    });
+
+    userSchema.statics.getScorePerLevels = function(userId, language, cb) {
+        const languageModel = models.languages[language];
+        const levelCount = languageModel.levels.length;
+
+        this.aggregate(levelScore(userId, languageModel),
+			(err, doc) => {
     			if (err) {
     				return cb(err);
 				}
 
+				if (doc.length === 0) {
+    			    return cb({
+                        status: 400,
+                        error: 'No user of that ID'
+                    });
+                }
+
+                doc = doc[0];
+
+				const levels = Array(levelCount).fill(0).map((_, i) => {
+				    const reading = doc.reading.find((level) => level._id === i + 1);
+				    const quiz = doc.quiz.find((level) => level._id === i + 1);
+
+				    let level;
+
+				    if (reading && quiz) {
+				        level = {
+				            _id: i + 1,
+                            score: reading.score,
+                            known: reading.known,
+                            known_avg: reading.known_avg,
+                            ratio: quiz.ratio,
+                            confidence: quiz.confidence,
+                        }
+                    } else if (reading || quiz) {
+				        if (reading) {
+				            level = {
+                                _id: i + 1,
+                                score: reading.score,
+                                known: reading.known,
+                                known_avg: reading.known_avg,
+                                ratio: 0,
+                                confidence: 0
+                            }
+                        } else {
+                            level = {
+                                _id: i + 1,
+                                score: defaultScore(),
+                                known: 0,
+                                known_avg: 0,
+                                ratio: quiz.ratio,
+                                confidence: quiz.confidence
+                            }
+                        }
+                    } else {
+                        level = {
+                            _id: i + 1,
+                            score: defaultScore(),
+                            known: 0,
+                            known_avg: 0,
+                            ratio: 0,
+                            confidence: 0
+                        }
+                    }
+
+                    level.prob = level.ratio + level.known_avg - level.ratio * level.known_avg;
+				    level.prediction = Math.ceil(level.prob * 100);
+
+				    level.title = languageModel.levels[i];
+
+                    return level;
+                });
+
 				cb(undefined, levels);
 			});
 	};
-
-    userSchema.statics.updateUserInfo = function(userId, cb) {
-        this.aggregate(computeVocabulary(userId),
-            (err, user) => {
-                if (err) {
-                    return cb(err);
-                }
-
-                if (user.length === 0) {
-                    return cb(undefined, { known: [] });
-                }
-
-                const vocab = user[0].vocab;
-
-                this.update({ _id: userId }, {
-                    '$set': {
-                        known: vocab
-                    }
-                }, {
-                    upsert: true,
-                }, (err) => {
-                    if (err) {
-                        return cb(err);
-                    }
-
-                    cb(undefined, { known: vocab });
-                });
-            })
-    };
 
 
 
@@ -121,74 +147,56 @@ module.exports = (mongoose, models) => {
 		});
 	};
 
-    userSchema.statics.addWords = function(words, userId, cb) {
-        wordsRead.english.addReadWords(words, userId, (err, result) => {
+    userSchema.statics.addWords = function(words, userId, language, cb) {
+        this.wordsReading[language].addReadWords(words, userId, (err, result) => {
 			if (err) {
 				return cb(err);
 			}
 
-			this.updateUserInfo(userId, () => {});
 			cb(undefined, result);
 		});
 	};
 
-    userSchema.statics.getWordsPerDay = function(userId, count, cb) {
-		this.aggregate(wordsPerDay(userId, count), cb);
+    userSchema.statics.getWordsPerDay = function(userId, language, count, cb) {
+		this.aggregate(wordsPerDay(userId, models.languages[language], count), cb);
 	};
 
-    userSchema.statics.getNewWordsPerDay = function(userId, count, cb) {
-		this.aggregate(newWordsPerDay(userId, count), cb);
+    userSchema.statics.getNewWordsPerDay = function(userId, language, count, cb) {
+		this.aggregate(newWordsPerDay(userId, models.languages[language], count), cb);
 	};
 
-    userSchema.statics.getRecentNewWords = function(userId, count, cb) {
-		this.aggregate(recentNewWords(userId, count), cb);
+    userSchema.statics.getRecentNewWords = function(userId, language, count, cb) {
+        const languageModel = models.languages[language];
+
+		this.aggregate(recentNewWords(userId, languageModel, count), (err, words) => {
+		    if (err) {
+		        return cb(err);
+            }
+
+            cb(undefined, words.map(word => {
+                word.level = languageModel.levels[word.level - 1];
+                return word;
+            }));
+        });
 	};
 
-    userSchema.statics.saveWordsFromQuizResult = function(userId, level, cb) {
-		const levels = Array(10).fill(1).map((item, i) => ({
-			level: i + 1,
-			ratio: 1
-		}));
-		const index = levels.map(level => level.level).indexOf(level);
+    userSchema.statics.knownWords = function(userId, language, cb) {
+        this.aggregate(computeVocabulary(userId, models.languages[language]), (err, user) => {
+            if (err) {
+                return cb(err);
+            }
 
-	    this
-			.where({ _id: userId })
-			.update({ levels: levels.slice(0, index + 1) })
-			.then(() => {
-				cb();
+            if (user.length === 0) {
+                return cb(undefined, { known: [] });
+            }
 
-                this.updateUserInfo(userId, (err, result) => {
-                    if (err) {
-                        return winston.log('info', err);
-                    }
+            const vocab = user[0].vocab;
 
-                    winston.log('info', result);
-                });
-			})
-			.catch((err) => cb(err));
-    };
-
-    userSchema.statics.knownWords = function(userId, cb) {
-		this.findOne({_id: userId}, ['known'], (err, user) => {
-			if (err) {
-				return cb(err);
-			}
-
-			if (user.known.length === 0) {
-				this.updateUserInfo(userId, (err1, vocab) => {
-					if (err1) {
-						return cb(err1);
-					}
-
-					cb(undefined, vocab);
-				})
-			} else {
-				cb(undefined, user.known);
-			}
-		})
+            cb(undefined, { known: vocab });
+        });
 	};
 
-	userSchema.statics.getQuiz = function(cb) {
+	userSchema.statics.getQuiz = function(language, cb) {
         fs.readFile('assets/list-questions.json', 'utf8', (err, file) => {
             if (err) {
                 return cb(err);
@@ -202,6 +210,10 @@ module.exports = (mongoose, models) => {
         });
     };
 
-	return mongoose.model('User', userSchema);
+    const model = mongoose.model('User', userSchema);
+
+    model.wordsReading = require('./wordReadings')(mongoose, models);
+
+    return model;
 };
 

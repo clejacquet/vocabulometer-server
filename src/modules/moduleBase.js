@@ -1,8 +1,9 @@
 const async = require('async');
 
 class BaseModule {
-    constructor(name, models) {
+    constructor(name, language, models) {
         this.name = name;
+        this.language = language;
         this._models = models;
     }
 
@@ -20,7 +21,7 @@ class BaseModule {
                     return cb1(err);
                 }
 
-                this._models.datasets[this.name].create(text, (err) => {
+                this._models.datasets[this.language][this.name].create(text, (err) => {
                     if (err) {
                         if (err.code === 11000) {
                             return cb1();

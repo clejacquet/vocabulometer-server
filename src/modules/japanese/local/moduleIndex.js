@@ -1,8 +1,8 @@
-const ModuleBase = require('../moduleBase');
+const ModuleBase = require('../../moduleBase');
 
 module.exports = class extends ModuleBase {
     loadUri(uri, cb) {
-        super.models.texts.findOne({ _id: uri }, ['text.title', 'text.words'], (err, doc) => {
+        super.models.texts.japanese.findOne({ _id: uri }, ['text.title', 'text.words'], (err, doc) => {
             if (err) {
                 return cb(err);
             }

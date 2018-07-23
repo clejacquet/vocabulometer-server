@@ -1,72 +1,160 @@
-db.getCollection('users').aggregate([
-{
-    "$match": {_id: ObjectId("5b18ea2b22ee21258cbced06")}
+db.getCollection('users').aggregate([
+{
+    "$match": {_id: ObjectId("5b31d0a41b4ff7410c76f6fc")}
+},
+{
+    $facet: {
+        reading: [
+            {
+                "$lookup": {
+                    from: "words_en",
+                    localField: "_id",
+                    foreignField: "userId",
+                    as: "words"
+                }
+            },
+            {
+                "$unwind": "$words"
+            },
+            {
+                "$group": {
+                    _id: "$words.word",
+                    count: { "$sum": 1 }
+                }
+            },
+            {
+                "$match": {
+                    count: { $gte: 12 }
+                }
+            },
+            {
+                "$project": {
+                    _id: 1
+                }
+            }
+        ],
+        quiz: [
+            {
+                $lookup: {
+                    from: "word_results",
+                    localField: "_id",
+                    foreignField: "userId",
+                    as: "results"
+                }
+            },
+            {
+                $unwind: "$results"
+            },
+            {
+                $project: {
+                    word: "$results.word",
+                    result: "$results.result"
+                }
+            },
+            {
+                $lookup: {
+                    from: "vocabs",
+                    localField: "word",
+                    foreignField: "word",
+                    as: "level"
+                }
+            },
+            {
+                $project: {
+                    level: { $arrayElemAt: [ "$level.level", 0 ] },
+                    result: 1
+                }
+            },
+            {
+                $group: {
+                    _id: "$level",
+                    results: { $push: "$result" }
+                }
+            },
+            {
+                $project: {
+                    sum: {
+                        $reduce: {
+                            input: "$results",
+                            initialValue: 0,
+                            in: { $cond: ["$$this", { $add: ["$$value", 1 ]}, "$$value"] }
+                        }
+                    },
+                    length: { $size: "$results" }
+                }
+            },
+            {
+                $project: {
+                    ratio: { $divide: ["$sum", "$length"] }
+                }
+            },
+            {
+                $match: {
+                    ratio: { $gte: 0.66 }
+                }
+            },
+            {
+                $lookup: 
+                {
+                    from: "vocabs",
+                    localField: "_id",
+                    foreignField: "level",
+                    as: "words"
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    words: {
+                        $push: "$words"
+                    }
+                }
+            },
+            {
+                $project: {
+                    words: {
+                        $reduce: {
+                            input: "$words",
+                            initialValue: [],
+                            in: {
+                                $concatArrays: ["$$this", "$$value"]
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                $unwind: "$words"
+            },
+            {
+                $project: {
+                    word: "$words.word",
+                    first: { $substrCP: [ "$words.word", 0, 1 ] }
+                }
+            },
+            {
+                $match: {
+                    first: {
+                        $ne: "<"
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: "$word"
+                }
+            }
+        ]
+    }
 },
 {
-    "$unwind": { path: "$levels", preserveNullAndEmptyArrays: true }
-},
-{
-    "$match": { "$or": [ { "levels": { "$exists": false }}, { "levels.ratio": {"$gte": 0.66}} ] }
-},
-{
-    "$group": {_id: "$_id", levels: {"$push": "$levels"}}
-},
-{
-    "$lookup": {
-        from: "words_en",
-        localField: "_id",
-        foreignField: "userId",
-        as: "words"
-    }
-},
-{
-    "$unwind": { path: "$words", preserveNullAndEmptyArrays: true }
-},
-{
-    "$group": {
-        _id: {word: "$words.word", userId: "$_id", levels: "$levels" },
-        count: { "$sum": 1 }
-    }
-},
-{
-    "$match": {
-        "$or": [ { "_id.word": { "$exists": false }}, { count: { "$gte": 12 }} ]
-    }
-},
-{
-    "$group": {
-        _id: "$_id.userId",
-        levels: { "$first": "$_id.levels" },
-        words: { "$push": "$_id.word" }
-    }
-},
-{
-    "$lookup": {
-        from: "vocabs",
-        localField: "levels.level",
-        foreignField: "level",
-        as: "levelVocab"
-    }
-},
-{
-    "$lookup": {
-        from: "vocabs",
-        localField: "words",
-        foreignField: "word",
-        as: "readVocab"
-    }
-},
-{
-    "$project": {
-        vocab: {"$setUnion": ["$levelVocab", "$readVocab"]},
-    }
-},
-{
-    "$project": {
+    $project: {
         vocab: {
-            word: 1,
-            level: 1
+            $setUnion: [
+                "$reading._id",
+                "$quiz._id"
+            ]
         }
     }
-}
+}
 ])

@@ -1,11 +1,49 @@
 const moduleLoader = require('./modules/moduleLoader');
 const youtube = require('./models/youtube');
+const constants = require('./constants');
 
 const Mongoose = require('mongoose').Mongoose;
 Mongoose.Promise = require('bluebird');
 const winston = require('winston');
 const async = require('async');
 
+/*
+   The model follows this structure:
+
+    model
+     |- languages
+     |   |- english
+     |   \- japanese
+     |- modules
+     |   |- english
+     |   |   |- en_module1
+     |   |   |- en_module2
+     |   |   \- ...
+     |   \- japanese
+     |       |- jp_module1
+     |       |- jp_module2
+     |       \- ...
+     |- datasets
+     |   |- english
+     |   |   |- en_dataset1
+     |   |   |- en_dataset2
+     |   |   \- ...
+     |   \- japanese
+     |       |- jp_dataset1
+     |       |- jp_dataset2
+     |       \- ...
+     |- users
+     |   |- wordResults
+     |   |   |- english
+     |   |   \- japanese
+     |   \- wordReadings
+     |       |- english
+     |       \- japanese
+     |- texts
+     |- nlp
+     \- youtube
+
+ */
 
 module.exports = (cb) => {
 
@@ -14,12 +52,12 @@ module.exports = (cb) => {
 
         // This task is for retrieving the connection source of the main MongoDB database
         (cb1) => {
-            const connectionString = 'mongodb://' + (process.env.MONGO_ADDRESS || 'mongo/vocabulometer');
+            const connectionString = constants.mainDb;
 
             const mongoose = new Mongoose();
             mongoose.connect(connectionString, {
-                user: 'clejacquet',
-                pass: 'clejacquet-imp'
+                user: constants.mainDbUser,
+                pass: constants.mainDbPass
             })
                 .then(() => cb1(undefined, mongoose))
                 .catch((err) => cb1(err));
@@ -27,12 +65,12 @@ module.exports = (cb) => {
 
         // This task is for retrieving the connection source of the MongoDB text database
         (cb1) => {
-            const connectionString = 'mongodb://' + (process.env.MONGO_TEXTS_ADDRESS || 'mongo/vocabulometer-texts');
+            const connectionString = constants.textDb;
 
             const mongoose = new Mongoose();
             mongoose.connect(connectionString, {
-                user: 'clejacquet',
-                pass: 'clejacquet-imp'
+                user: constants.textDbUser,
+                pass: constants.textDbPass
             })
                 .then(() => cb1(undefined, mongoose))
                 .catch((err) => cb1(err));
@@ -40,7 +78,7 @@ module.exports = (cb) => {
 
         // This task is for retrieving the connection source for accessing Youtube API
         (cb1) => {
-            youtube.authenticate(process.env.YT_REDIRECT_URI || 'http://vocabulometer.herokuapp.com/admin', (err, result) => {
+            youtube.authenticate(constants.youtubeRedirectUri, (err, result) => {
                 if (err) {
                     return cb1(err);
                 }
@@ -67,6 +105,32 @@ module.exports = (cb) => {
 
         const models = {};
 
+        models.languages = {
+            english: {
+                levels: [
+                    'level 1',
+                    'level 2',
+                    'level 3',
+                    'level 4',
+                    'level 5',
+                    'level 6',
+                    'level 7',
+                    'level 8',
+                    'level 9',
+                    'level 10',
+                ],
+                format: collectionName => `${collectionName}_en`,
+                nlpUri: constants.nlpEnAddress
+            } ,
+            japanese: {
+                levels: [
+                    'N5', 'N4', 'N3', 'N2', 'N1'
+                ],
+                format: collectionName => `${collectionName}_jp`,
+                nlpUri: constants.nlpJpAddress
+            },
+        };
+
         models.toObjectID = id => connections[0].Types.ObjectId(id);
 
         // Model for NLP treatments
@@ -80,6 +144,12 @@ module.exports = (cb) => {
 
         // Model for Youtube-related tasks
         models.youtube = youtube;
+
+        // Model for feedbacks
+        models.feedbacks = require('./models/feedback')(connections[0], models);
+
+        // Model for news feed
+        models.news = require('./models/news')(connections[1], models);
 
         // Loading the recommendation system models
         models.recommenders = {
@@ -98,8 +168,12 @@ module.exports = (cb) => {
 
             const datasetsModel = require('./models/datasets');
 
-            Object.values(modules).map((module) => {
-                models.datasets[module.name] = datasetsModel(module.name, connections[0]);
+            Object.keys(modules).forEach((language) => {
+                models.datasets[language] = {};
+
+                Object.values(modules[language]).forEach(module => {
+                    models.datasets[language][module.name] = datasetsModel(module.name, models.languages[language], connections[0]);
+                });
             });
 
 

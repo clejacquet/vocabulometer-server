@@ -1,4 +1,4 @@
-const ModuleBase = require('../moduleBase');
+const ModuleBase = require('../../moduleBase');
 const async = require('async');
 
 module.exports = class extends ModuleBase {

@@ -3,8 +3,8 @@ const request = require('request');
 const _ = require('underscore');
 
 module.exports = {
-    compute: (texts, cb) => {
-        const uri = 'http://' + (process.env.NLP_ADDRESS || 'nlp') + '/vocabulometer/lemmatize';
+    compute: (texts, language, cb) => {
+        const uri = language.nlpUri;
 
         if (!Array.isArray(texts)) {
             texts = [texts];

@@ -1,4 +1,4 @@
-module.exports = (userId, count) => {
+module.exports = (userId, languageFormatter, count) => {
     return [
         {
             $match: {
@@ -7,7 +7,7 @@ module.exports = (userId, count) => {
         },
         {
             "$lookup": {
-                from: "words_en",
+                from: languageFormatter.format("word_readings"),
                 localField: "_id",
                 foreignField: "userId",
                 as: "words"

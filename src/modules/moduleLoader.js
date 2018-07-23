@@ -30,20 +30,22 @@ const getDirs = function(rootDir, cb) {
 };
 
 const out = (models, cb) => {
-    getDirs('src/modules', (err, dirs) => {
+    fs.readFile('src/modules/modules.json', 'utf8', (err, file) => {
         if (err) {
             return cb(err);
         }
 
-        const moduleList = dirs
-            .map(dir => {
-                const Module = require(path.resolve('src/modules/' + dir + '/moduleIndex'));
-                return new Module(dir, models);
-            });
+        const modulesDoc = JSON.parse(file).modules;
 
         const modules = {};
-        moduleList.forEach((module) => {
-            modules[module.name] = module;
+
+        Object.keys(modulesDoc).forEach(language => {
+            modules[language] = {};
+
+            modulesDoc[language].forEach((module) => {
+                const Module = require(path.resolve(`src/modules/${language}/${module.path}/moduleIndex`));
+                modules[language][module.name] = new Module(module.name, language, models);
+            });
         });
 
         cb(undefined, modules);

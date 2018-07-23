@@ -1,4 +1,4 @@
-module.exports = (name, mongoose) => {
+module.exports = (name, languageModel, mongoose) => {
     const datasetSchema = new mongoose.Schema({
         uri: {
             type: String,
@@ -6,8 +6,10 @@ module.exports = (name, mongoose) => {
         },
         title: String,
         words: [String]
+    }, {
+        collection: languageModel.format(`dataset_${name}`)
     });
 
-    return mongoose.model(name, datasetSchema);
+    return mongoose.model(languageModel.format(name), datasetSchema);
 };
 

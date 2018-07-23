@@ -1,0 +1,20 @@
+{
+  "modules": {
+    "english": [
+      {
+        "name": "youtube",
+        "path": "youtube"
+      },
+      {
+        "name": "local",
+        "path": "local"
+      }
+    ],
+    "japanese": [
+      {
+        "name": "local",
+        "path": "local"
+      }
+    ]
+  }
+}

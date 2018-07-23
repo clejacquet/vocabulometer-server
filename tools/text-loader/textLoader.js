@@ -3,12 +3,16 @@ const fs = require('fs');
 const path = require('path');
 const async = require('async');
 
+// const sourceDir = [
+//     '../../../../doc/texts/bbc/business',
+//     '../../../../doc/texts/bbc/entertainment',
+//     '../../../../doc/texts/bbc/politics',
+//     '../../../../doc/texts/bbc/sport',
+//     '../../../../doc/texts/bbc/tech'
+// ];
+
 const sourceDir = [
-    '../../../../doc/texts/bbc/business',
-    '../../../../doc/texts/bbc/entertainment',
-    '../../../../doc/texts/bbc/politics',
-    '../../../../doc/texts/bbc/sport',
-    '../../../../doc/texts/bbc/tech',
+    'jp_out'
 ];
 
 const CHUNK_SIZE = 10;
@@ -22,14 +26,14 @@ const tasks = sourceDir.map((dir) => {
                         cb2(err);
                     }
 
-                    const lines = data.split('\n\n');
+                    const lines = data.split(/\r?\n/);
                     const title = lines.splice(0, 1)[0];
                     const text = lines.join('\n');
 
                     cb2(null, {
                         title: title,
                         body: text,
-                        source: 'BBC'
+                        source: 'NHK'
                     });
                 });
             }, cb);
@@ -57,10 +61,10 @@ async.parallel(tasks, (err, result) => {
     const chunkTasks = textChunks.map((textChunk, i) => {
         return cb => {
             const options = {
-                url: 'http://localhost:4100/api/texts',
-                json: { texts: textChunk },
+                url: 'http://vocabulometer-dev.herokuapp.com/api/texts',
+                json: { texts: textChunk, language: 'japanese' },
                 headers: {
-                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IkNsw6ltZW50IiwiaWF0IjoxNTI4MDc4NTk0LCJleHAiOjE1Mjg2ODMzOTR9.G5Z70CHXvxZ9Q61753OltHuVbn8tiSwshCsi-Lo3qA4'
+                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVhZDgyZTE0MTM5MzVjMDAwNDQzNzZjMiIsImlhdCI6MTUzMTg5ODY1NywiZXhwIjoxNTMyNTAzNDU3fQ.vM8H2EyGXllCYkCtQecWGcR3jfYf_Ey_ISEa4LLENrs'
                 }
             };
 
@@ -68,10 +72,13 @@ async.parallel(tasks, (err, result) => {
                 if (err) {
                     cb(err);
                 } else if (!(response.statusCode >= 200 && response.statusCode < 300)) {
-                    cb(body);
+
                 } else {
                     console.log('Chunk ' + (i + 1) + ' / ' + textChunks.length + ' sent');
-                    cb(null);
+                    body.forEach((text, i) => {
+                        fs.writeFileSync('./output/text' + i + '.json', JSON.stringify(text));
+                    });
+                    cb();
                 }
             });
         }

@@ -28,7 +28,7 @@ module.exports = (passport) => {
 		passport.authenticate('local', { session: false }),
 		(req, res, next) => {
 			req.token = jwt.sign({
-				id: req.user.name,
+				id: req.user._id,
 			}, 'efe5s3fs5f4e5s5c55e5segrgrg2s3', {
 				expiresIn: '7d'
 			});
@@ -74,28 +74,32 @@ module.exports = (passport) => {
 		});
 
 
-    //  Retrieves the current logged user ID count of read words every day since the two last weeks
+    //  Retrieves the current logged user score for each level
     //
-    // 	GET /api/users/current/stats/words_read
-    // 	input-type: url_encoded
+    // 	GET /api/users/current/score
+    // 	input-type: None
     //  output-type: JSON
     //
-    //  input-structure: {
-    //		limit: Number
-    //	}
     //
     //  output-structure: {
-    //  	days: [
+    //  	levels: [
     // 			{
-    // 				_id: Date,
-    // 				count: Number
+    // 				_id: Number,
+    // 				score: Number
     // 			}
     // 		]
     //	}
     router.get('/current/score',
         passport.isLoggedIn,
+        check.schema({
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
+            }
+        }),
         (req, res, next) => {
-            req.models.users.getScorePerLevels(req.user._id, (err, levels) => {
+            req.models.users.getScorePerLevels(req.user._id, req.data.language, (err, levels) => {
                 if (err) {
                     return next(err);
                 }
@@ -103,6 +107,60 @@ module.exports = (passport) => {
                 res.status(200);
                 res.json({
                     levels: levels
+                });
+            });
+        });
+
+
+    //  Save word test results
+    //
+    // 	POST /api/users/current/word_result
+    // 	input-type: JSON
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		results: [
+    //          {
+    //              word: String,
+    //              value: Boolean
+    //          }
+    //      ]
+    //	}
+    //
+    //  output-structure: {
+    //  	done: Boolean
+    //	}
+    router.post('/current/word_result',
+        passport.isLoggedIn,
+        check.schema({
+            'results.*.word': {
+                exists: true,
+                errorMessage: 'word parameter not provided',
+                in: 'body',
+                custom: { options: (value) => typeof value === 'string' }
+            },
+            'results.*.value': {
+                exists: true,
+                errorMessage: 'value parameter not provided',
+                in: 'body',
+                custom: { options: (value) => typeof value === 'boolean' }
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
+            }
+        }),
+        (req, res, next) => {
+            req.models.users.wordResults[req.data.language].saveResult(req.data.results, req.user._id, (err, result) => {
+                if (err) {
+                    return next(err);
+                }
+
+                res.status(200);
+                res.json({
+                    done: true,
+                    result: result
                 });
             });
         });
@@ -135,10 +193,15 @@ module.exports = (passport) => {
                 isInt: true,
                 custom: { options: (value) => parseInt(value) > 0 },
                 sanitizer: value => parseInt(value)
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
 		}),
 		(req, res, next) => {
-			req.models.users.getWordsPerDay(req.user._id, parseInt(req.data.limit), (err, result) => {
+			req.models.users.getWordsPerDay(req.user._id, req.data.language, parseInt(req.data.limit), (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -177,10 +240,15 @@ module.exports = (passport) => {
                 isInt: true,
                 custom: { options: (value) => parseInt(value) > 0 },
                 sanitizer: value => parseInt(value)
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
 		(req, res, next) => {
-			req.models.users.getNewWordsPerDay(req.user._id, req.data.limit, (err, result) => {
+			req.models.users.getNewWordsPerDay(req.user._id, req.data.language, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -220,10 +288,15 @@ module.exports = (passport) => {
                 isInt: true,
                 custom: { options: (value) => parseInt(value) > 0 },
                 sanitizer: value => parseInt(value)
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
 		(req, res, next) => {
-			req.models.users.getRecentNewWords(req.user._id, req.data.limit, (err, result) => {
+			req.models.users.getRecentNewWords(req.user._id, req.data.language, req.data.limit, (err, result) => {
 				if (err) {
 					return next(err);
 				}
@@ -261,6 +334,11 @@ module.exports = (passport) => {
             'words.*': {
                 in: 'body',
                 sanitizer: value => value.toLowerCase()
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
@@ -272,7 +350,7 @@ module.exports = (passport) => {
                     return word !== ''
                 });
 
-            req.models.users.addWords(words, req.user._id, (err, result) => {
+            req.models.users.addWords(words, req.user._id, req.data.language, (err, result) => {
                 if (err) {
                     return next(err);
                 }
@@ -321,18 +399,23 @@ module.exports = (passport) => {
                 errorMessage: 'uid parameter provided is incorrect',
                 custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
                 sanitizer: value => toObjectID(value)
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
             const words = req.data.words
                 .map((word) => {
-                    return word.replace(/[^a-zA-Z0-9-']/g, "").toLowerCase();
+                    return word.toLowerCase();
                 })
                 .filter((word) => {
                     return word !== ''
                 });
 
-            req.models.users.addWords(words, req.data.uid, (err, result) => {
+            req.models.users.addWords(words, req.data.uid, req.data.language, (err, result) => {
                 if (err) {
                     return next(err);
                 }
@@ -352,65 +435,81 @@ module.exports = (passport) => {
         });
 
 
-	router.get('/current/quiz',
+    //  Saves a reading feedback for a user and a text
+    //
+    // 	POST /api/users/current/feedback
+    // 	input-type: body, JSON
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //  	feedback: String,
+    //      uri: String,
+    //      dataset: String,
+    //      language: String
+    //	}
+    //
+    //  output-structure: {
+    //  	success: Boolean
+    //	}
+    router.post('/current/feedback',
         passport.isLoggedIn,
+        check.schema({
+            feedback: {
+                in: 'body',
+                errorMessage: 'feedback parameter provided is incorrect',
+                custom: { options: (value) => ['easy', 'medium', 'hard'].includes(value) }
+            },
+            uri: {
+                in: 'body',
+                errorMessage: 'uri parameter provided is incorrect'
+            },
+            dataset: {
+                in: 'body',
+                errorMessage: 'dataset parameter provided is incorrect'
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
+            }
+        }),
         (req, res, next) => {
-	        req.models.users.getQuiz((err, result) => {
+            req.models.feedbacks.saveFeedback(
+                req.user._id,
+                req.data.uri,
+                req.data.feedback,
+                req.data.dataset,
+                req.data.language,
+                (err) => {
+                    if (err) {
+                        return next(err);
+                    }
+
+                    res.status(200);
+                    res.json({
+                        success: true
+                    });
+                })
+        });
+
+
+	router.get('/quiz',
+        passport.isLoggedIn,
+        check.schema({
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
+            }
+        }),
+        (req, res, next) => {
+	        req.models.users.getQuiz(req.data.language, (err, result) => {
 	            if (err) {
 	                return next(err);
                 }
 
                 res.status(200);
                 res.json(result);
-            });
-        });
-
-
-    //  Save words list according to the quiz result provided
-    //
-    // 	POST /api/users/current/quiz_result
-    // 	input-type: body, JSON
-    //  output-type: JSON
-    //
-    //  input-structure: {
-    //		result: String // among the following values: 'Z', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'
-    //	}
-    //
-    //  output-structure: {
-    //		success: Boolean
-    // }
-    router.post('/current/quiz_result',
-        passport.isLoggedIn,
-        check.schema({
-            result: {
-                in: 'body',
-                errorMessage: 'result parameter provided is incorrect',
-                exists: true,
-                custom: { options: (value) => ['Z', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'].includes(value) }
-            }
-        }),
-        (req, res, next) => {
-            const cefr210 = {
-                'Z':  0,
-                'A1': 1,
-                'A2': 1,
-                'B1': 2,
-                'B2': 3,
-                'C1': 6,
-                'C2': 10
-            };
-
-            const level = cefr210[req.data.result];
-
-            req.models.users.saveWordsFromQuizResult(req.user._id, level, (err) => {
-                if (err) {
-                    return next(err);
-                }
-
-                res.status(201);
-                res.json({
-                    status: 'success'
-                });
             });
         });
 

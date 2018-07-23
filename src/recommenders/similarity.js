@@ -1,6 +1,8 @@
-module.exports = (usersModel, userId, dataset, sort, limit, cb) => {
+const winston = require('winston');
+
+module.exports = (userId, usersModel, dataset, language, sort, limit, cb) => {
     try {
-        usersModel.knownWords(userId, (err, words) => {
+        usersModel.knownWords(userId, language, (err, words) => {
             if (err) {
                 return cb(err);
             }
@@ -9,7 +11,7 @@ module.exports = (usersModel, userId, dataset, sort, limit, cb) => {
                 return cb(null, {});
             }
 
-            words = words.map(word => word.word);
+            words = words.known;
 
             dataset.aggregate([
                 {

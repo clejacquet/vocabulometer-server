@@ -19,8 +19,15 @@ module.exports = (passport) => {
     //		sample: String
     //  }
     router.get('/sample',
+        check.schema({
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
+            }
+        }),
         (req, res, next) => {
-            req.models.texts.getSample((err, sample) => {
+            req.models.texts[req.data.language].getSample((err, sample) => {
                 if (err) {
                     return next(err);
                 }
@@ -59,10 +66,15 @@ module.exports = (passport) => {
                 errorMessage: 'Missing or incorrect id parameter',
                 custom: { options: (value) => { try { return toObjectID(value); } catch (e) { return false } } },
                 sanitizer: value => toObjectID(value)
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
-		req.models.texts.findOne({ _id: req.data.id }, (err, result) => {
+		req.models.texts[req.data.language].findOne({ _id: req.data.id }, (err, result) => {
 			if (err) {
 				return next(err);
 			}
@@ -136,16 +148,21 @@ module.exports = (passport) => {
                 in: 'body',
                 errorMessage: 'Source parameter missing',
                 exists: true
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
-		req.models.texts.loadAndCreateTexts(req.data.texts, (err, texts) => {
-			if (err) {
-				return next(err);
-			}
-			res.json(texts);
-		});
-	});
+            req.models.texts[req.data.language].loadAndCreateTexts(req.data.texts, (err, texts) => {
+                if (err) {
+                    return next(err);
+                }
+                res.json(texts);
+            });
+        });
 
 
     //  Modifies the specified text's body
@@ -173,20 +190,25 @@ module.exports = (passport) => {
                 in: 'params',
                 errorMessage: 'ID parameter missing',
                 exists: true
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
-        req.models.texts.loadAndModifyText(req.data.id, req.data.text, (err) => {
-            if (err) {
-                return next(err);
-            }
+            req.models.texts[req.data.language].loadAndModifyText(req.data.id, req.data.text, (err) => {
+                if (err) {
+                    return next(err);
+                }
 
-            res.status(200);
-            res.json({
-                success: true
-            });
-        })
-    });
+                res.status(200);
+                res.json({
+                    success: true
+                });
+            })
+        });
 
 
     //  Modifies the specified text's title
@@ -214,20 +236,25 @@ module.exports = (passport) => {
                 in: 'params',
                 errorMessage: 'ID parameter missing',
                 exists: true
+            },
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
-        req.models.texts.modifyTitle(req.data.id, req.data.title, (err) => {
-            if (err) {
-                return next(err);
-            }
+            req.models.texts[req.data.language].modifyTitle(req.data.id, req.data.title, (err) => {
+                if (err) {
+                    return next(err);
+                }
 
-            res.status(200);
-            res.json({
-                success: true
-            });
-        })
-    });
+                res.status(200);
+                res.json({
+                    success: true
+                });
+            })
+        });
 
 
     //  Deletes the specified text
@@ -246,20 +273,25 @@ module.exports = (passport) => {
                 in: 'params',
                 errorMessage: 'ID parameter missing',
                 exists: true
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
-        req.models.texts.deleteOne({ _id: req.data.id }, (err) => {
-            if (err) {
-                return next(err);
-            }
+            req.models.texts[req.data.language].deleteOne({ _id: req.data.id }, (err) => {
+                if (err) {
+                    return next(err);
+                }
 
-            res.status(200);
-            res.json({
-                success: true
+                res.status(200);
+                res.json({
+                    success: true
+                });
             });
         });
-    });
 
 
     //  Sends the IDs and titles of the texts in the specified page
@@ -293,32 +325,36 @@ module.exports = (passport) => {
                 isInt: true,
                 custom: { options: (value) => parseInt(value) >= 0 },
                 sanitizer: value => parseInt(value)
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
         }),
         (req, res, next) => {
-        const page = parseInt(req.data.page);
+            const page = parseInt(req.data.page);
 
-        req.models.texts.count((err, count) => {
-            if (err) {
-                return next(err);
-            }
-
-            const lastPage = Math.ceil(count / 20) - 1;
-
-            getTextOnPage(req.models.texts, page, (err, result) => {
+            req.models.texts[req.data.language].count((err, count) => {
                 if (err) {
                     return next(err);
                 }
 
-                res.status(200);
-                res.json({
-                    lastPage: lastPage,
-                    texts: result
+                const lastPage = Math.ceil(count / 20) - 1;
+
+                getTextOnPage(req.models.texts[req.data.language], page, (err, result) => {
+                    if (err) {
+                        return next(err);
+                    }
+
+                    res.status(200);
+                    res.json({
+                        lastPage: lastPage,
+                        texts: result
+                    });
                 });
             });
         });
-
-    });
 
 
     //  Sends the IDs and titles of the texts in the last page
@@ -340,26 +376,33 @@ module.exports = (passport) => {
     //  }
     router.get('/last',
         passport.isLoggedIn,
-        (req, res, next) => {
-        req.models.texts.count((err2, count) => {
-            if (err2) {
-                return next(err2);
+        check.schema({
+            language: {
+                in: 'body',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
             }
-
-            const page = Math.ceil(count / 20) - 1;
-            getTextOnPage(req.models.texts, page, (err, result) => {
-                if (err) {
-                    return next(err);
+        }),
+        (req, res, next) => {
+            req.models.texts[req.data.language].count((err2, count) => {
+                if (err2) {
+                    return next(err2);
                 }
 
-                res.status(200);
-                res.json({
-                    lastPage: page,
-                    texts: result
+                const page = Math.ceil(count / 20) - 1;
+                getTextOnPage(req.models.texts[req.data.language], page, (err, result) => {
+                    if (err) {
+                        return next(err);
+                    }
+
+                    res.status(200);
+                    res.json({
+                        lastPage: page,
+                        texts: result
+                    });
                 });
             });
         });
-    });
 
 	return router;
 };
