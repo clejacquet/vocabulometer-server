@@ -345,7 +345,7 @@ module.exports = {
     },
 
     translateWord: (req,result) => {
-      translate(req.params.word, {to: 'en'}).then(res => {
+      translate(req.params.word, {from: req.query.src, to: 'en'}).then(res => {
           console.log(res.text);
           result.json(res.text)
 
