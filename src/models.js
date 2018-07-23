@@ -151,6 +151,9 @@ module.exports = (cb) => {
         // Model for news feed
         models.news = require('./models/news')(connections[1], models);
 
+        // Model for news feed
+        models.srs = require('./models/srs')(connections[0], models);
+
         // Loading the recommendation system models
         models.recommenders = {
             easy: require('./recommenders/easy'),
