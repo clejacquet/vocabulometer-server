@@ -75,14 +75,16 @@ module.exports = (mongoose, models) => {
             });
     };
 
-    SrsSchema.statics.findAllSrsWords = function(user_id){ //return all words of a specific user
+    SrsSchema.statics.findAllSrsWords = function(userId){ //return all words of a specific user
         return new Promise((resolve, reject) => {
-            this.aggregate( [
-                { $match: { userId: user_id  } }], function (err, result) {
-                if (err) return reject(err);
-                if (result.length){
-                    return resolve(result)
+            this.aggregate([
+                { $match: { userId: userId } }
+            ], function (err, result) {
+                if (err) {
+                    return reject(err);
                 }
+
+                resolve(result);
             });
         })
     };
@@ -113,8 +115,13 @@ module.exports = (mongoose, models) => {
             console.log("last seen")
             console.log(user_id)
             this.aggregate([
-                {$match: {userId: user_id}}], (err, result) => {
-                if (err) console.log(err);
+                { $match: { userId: user_id } }
+            ], (err, result) => {
+                if (err) {
+                    console.log(err);
+                    return reject(err);
+                }
+
                 if(result.length) {
                     console.log(result)
                     for (let i = 0; i < result.length; i++) {

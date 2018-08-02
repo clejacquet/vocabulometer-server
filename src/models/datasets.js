@@ -2,7 +2,7 @@ module.exports = (name, languageModel, mongoose) => {
     const datasetSchema = new mongoose.Schema({
         uri: {
             type: String,
-            unique: true
+            // unique: true
         },
         title: String,
         words: [String]

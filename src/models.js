@@ -108,20 +108,20 @@ module.exports = (cb) => {
         models.languages = {
             english: {
                 levels: [
-                    'level 1',
-                    'level 2',
-                    'level 3',
-                    'level 4',
-                    'level 5',
-                    'level 6',
-                    'level 7',
-                    'level 8',
-                    'level 9',
-                    'level 10',
+                    'Level 1',
+                    'Level 2',
+                    'Level 3',
+                    'Level 4',
+                    'Level 5',
+                    'Level 6',
+                    'Level 7',
+                    'Level 8',
+                    'Level 9',
+                    'Level 10',
                 ],
                 format: collectionName => `${collectionName}_en`,
                 nlpUri: constants.nlpEnAddress
-            } ,
+            },
             japanese: {
                 levels: [
                     'N5', 'N4', 'N3', 'N2', 'N1'

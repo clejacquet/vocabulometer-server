@@ -83,6 +83,7 @@ function loadRoutes(app, models) {
     const texts = require('./routes/texts')(passport);
     const news = require('./routes/news')(passport);
     const srs = require('./routes/srs')(passport);
+    const utils = require('./routes/utils')(passport);
     const admin = require('./routes/admin')(passport);
     const datasets = require('./routes/datasets')(passport, models);
 
@@ -90,6 +91,7 @@ function loadRoutes(app, models) {
     router.use('/texts', texts);
     router.use('/news', news);
     router.use('/srs', srs);
+    router.use('/utils', utils);
     router.use('/admin', admin);
     router.use('/datasets', datasets);
 

@@ -1,15 +1,17 @@
+const lastReviews = require('./aggregations/lastReviews');
+
 module.exports = (mongoose, models) => {
     const results = {};
 
     Object.keys(models.languages).forEach(name => {
-        const formatter = models.languages[name];
+        const languageModel = models.languages[name];
 
         const wordResultsSchema = new mongoose.Schema({
             userId: mongoose.Schema.Types.ObjectId,
             word: String,
             result: Boolean,
             time: { type: Date, default: Date.now }
-        }, {collection: formatter.format('word_results')});
+        }, {collection: languageModel.format('word_results')});
 
 
         wordResultsSchema.statics.saveResult = function(wordResults, userId, cb) {
@@ -20,7 +22,23 @@ module.exports = (mongoose, models) => {
             })), cb)
         };
 
-        results[name] = mongoose.model(formatter.format('WordResult'), wordResultsSchema);
+        wordResultsSchema.statics.lastReviews = function(userId, limit, cb) {
+            this.aggregate(lastReviews(userId, limit, languageModel), (err, reviews) => {
+                if (err) {
+                    return cb(err);
+                }
+
+                cb(undefined, reviews.map(review => ({
+                    word: review.word,
+                    time: review.time,
+                    result: review.result,
+                    status: review.status,
+                    level: languageModel.levels[review.level - 1]
+                })));
+            });
+        };
+
+        results[name] = mongoose.model(languageModel.format('WordResult'), wordResultsSchema);
     });
 
     return results;

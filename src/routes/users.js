@@ -309,6 +309,62 @@ module.exports = (passport) => {
 		});
 
 
+    //  Retrieves the new recently reviewed words by the current logged user (maximum retrieved = limit)
+    //
+    // 	GET /api/users/current/stats/last_reviews
+    // 	input-type: url_encoded
+    //  output-type: JSON
+    //
+    //  input-structure: {
+    //		limit: Number
+    //	}
+    //
+    //  output-structure: {
+    //  	words: [
+    // 			{
+    // 				word: String,
+    //              level: Integer
+    //              result: Boolean,
+    // 				time: Date
+    // 			}
+    // 		]
+    //	}
+    router.get('/current/stats/last_reviews',
+        passport.isLoggedIn,
+        check.schema({
+            limit: {
+                in: 'query',
+                errorMessage: 'limit parameter provided is incorrect',
+                isInt: true,
+                custom: { options: (value) => parseInt(value) > 0 },
+                sanitizer: value => parseInt(value)
+            },
+            language: {
+                in: 'query',
+                errorMessage: 'language parameter provided is incorrect',
+                custom: { options: (value) => ['english', 'japanese'].includes(value) }
+            }
+        }),
+        (req, res, next) => {
+            req.models.users.wordResults[req.data.language].lastReviews(req.user._id, req.data.limit, (err, result) => {
+                if (err) {
+                    return next(err);
+                }
+
+                res.status(200);
+                res.json({
+                    words: result.map(word => ({
+                        word: word.word,
+                        level: word.level,
+                        result: word.result,
+                        status: word.status,
+                        time: word.time
+                    }))
+                });
+            });
+        });
+
+
     //  Save a list of words for the user currently logged
     //
     // 	POST /api/users/current/word

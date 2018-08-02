@@ -14,179 +14,243 @@ const SRS_MAX_SIZE = 50;
 
 
 module.exports = {
-    getSrsSize: (req, res) => {
-        var srsSize = 0;
-        req.models.srs.aggregate( [
-            { $match: { userId: req.params.user_id  } },
-            { $group: { _id: null, count: { $sum: 1 }}}], function (err, result) {
-            if (err) return console.log(err);
-            if (!result.length) console.log("user does not exists")
-            else { console.log("heyyy");
-                res.json(result[0].count)}
+    getSrsSize: (req, res, next) => {
+        req.models.srs.aggregate([
+            { $match: { userId: req.data.user_id  } },
+            { $group: { _id: null, count: { $sum: 1 } } }
+        ], function (err, result) {
+            if (err) {
+                return next(err);
+            }
+
+            if (result.length === 0) {
+                return next({
+                    error: "user does not exists",
+                    status: 400
+                });
+            }
+            else {
+                res.json(result[0].count);
+            }
         })
     },
 
     findWordIdByUserId: (req, res) => { //return word_id with word and userid
-        console.log("enter")
+        console.log("enter");
         req.models.srs.aggregate( [
-            { $match: { userId: req.params.user_id  } },
-            { $match: { word: req.params.word } } ], function (err, result) {
-            if (err) console.log(err);
-            if (result.length){
-                console.log("res enter")
-                console.log(result)
-                //word_id = result[0]._id;
-                //console.log("word _id: " + word_id);
-                //return result[0]._id;
-                res.json(result[0]._id)
+            { $match: { userId: req.data.user_id  } },
+            { $match: { word: req.data.word } }
+        ], function (err, result) {
+            if (err) {
+                return next(err);
             }
-            if(!result.length) {
-                console.log("couldn't find word")
-                res.json("No such word exists")
+
+            if(result.length === 0) {
+                return next({
+                    error: "No such word exists",
+                    status: 400
+                });
             }
+
+            console.log("res enter");
+            console.log(result);
+            //word_id = result[0]._id;
+            //console.log("word _id: " + word_id);
+            //return result[0]._id;
+            res.json(result[0]._id);
         });
     },
 
 
     //middleware
-    findAllSrsWords: (req,res, next) => { //return all words of a specific user
-        req.models.srs.aggregate( [
-            { $match: { userId: req.params.user_id } }], function (err, result) {
-            if (err) console.log(err);
-            if (!result.length) console.log("user does not exists")
-            if (result.length){
-                if(req.params.time){ next() }
-                res.json(result);
+    findAllSrsWords: (req, res, next) => { //return all words of a specific user
+        req.models.srs.aggregate([
+            { $match: { userId: req.data.user_id } }
+        ], function (err, result) {
+            if (err) {
+                return next(err);
             }
-        })
+
+            if (result.length === 0) {
+                return next({
+                    error: "user does not exists",
+                    status: 400
+                });
+            }
+
+            // if(req.data.time){ next() } // ?????
+            res.json(result);
+        });
     },
 
-    findWordsByLastSeen: (req, res) => { //find all words that haven't be since since timeLastSeen
-        var currentDate = new Date();
-        var idList = [];
-        var time = req.params.time;
-        console.log(time)
-        req.models.srs.findAllSrsWords(req.params.user_id)
+    //find all words that haven't be since since timeLastSeen
+    findWordsByLastSeen: (req, res, next) => {
+        const currentDate = new Date();
+        const idList = [];
+        const time = req.data.time;
+
+        req.models.srs.findAllSrsWords(req.data.user_id)
             .then( result => {
-                if(result.length){
-                    console.log("hey")
+                if(result.length > 0) {
+                    console.log("hey");
+
                     for(let i = 0; i < result.length; i++){
-                        if(req.models.srs.timeDiff(result[i].lastSeen, currentDate) > time*3600*1000){
+                        if(req.models.srs.timeDiff(result[i].lastSeen, currentDate) > time * 3600 * 1000){
                             //console.log(timeDiff(res[i].lastSeen, currentDate));
-                            idList.push(result[i])
-                            console.log(result[i])
+                            idList.push(result[i]);
+                            console.log(result[i]);
                             //console.log(res[i].word)
                         }
                     }
-                    if(!idList.length) console.log("No remaining words last seen");
+
+                    if(!idList.length) {
+                        console.log("No remaining words last seen");
+                    }
                     res.json(idList);
                 }
-                if(!result.length) res.send("No words last seen")
+
             })
+            .catch(err => next(err));
     },
 
-    findWordsToLearn: (req, res) => {
-        var learningArray = [ [], [], [], [], [], [] ];
+    findWordsToLearn: (req, res, next) => {
+        const learningArray = [ [], [], [], [], [], [] ];
 
-        for(let i = 0; i < 6; i++){
-            req.models.srs.findWordsByLastSeen(req.params.user_id, SPACING[i])
-                .then( result => {
-                    console.log("in then")
-                    for(let j = 0; j < result.length; j++){
+        for (let i = 0; i < 6; i++) {
+            req.models.srs.findWordsByLastSeen(req.data.user_id, SPACING[i])
+                .then(result => {
+                    console.log("in then");
+
+                    for (let j = 0; j < result.length; j++) {
                         if(result[j].lv === i) {
                             learningArray[i].push(result[j]);
                         }
                     }
-                    if(i === 5) res.json(learningArray);
+
+                    if(i === 5) {
+                        res.json(learningArray);
+                    }
                 })
+                .catch(err => next(err));
         }
-        if(!learningArray.length) {
+
+        if (learningArray.length === 0) {
             console.log("No remaining words to learn");
             res.json("No remaining words to learn")
         }
     },
 
-    removeWordFromSrs: (req, res) => {
-        req.models.srs.findOneAndRemove({ _id: req.params.word_id }, function(err, doc){
-            if(err) console.log("the word you are removing doesn't exists")
-            if(doc) {
-                console.log("Word removed");
-                res.json({
-                    success: true
+    removeWordFromSrs: (req, res, next) => {
+        req.models.srs.findOneAndRemove({ _id: req.data.word_id }, function(err, doc) {
+            if (err) {
+                return next(err);
+            }
+
+            if(!doc) {
+                return next({
+                    error: "the word you are removing doesn't exists",
+                    status: 400
                 });
             }
-            else { console.log("Word you want to remove doesn't exists") }
+
+            console.log("Word removed");
+            res.json({
+                success: true
+            });
         })
     },
 
-    readWord: (req, res) => {
-        var time = new Date()/*.toISOString()*/;
-        req.models.srs.findOneAndUpdate({'_id': req.params.word_id},
+    readWord: (req, res, next) => {
+        const time = new Date()/*.toISOString()*/;
+
+        req.models.srs.findOneAndUpdate(
+            {
+                _id: req.data.word_id
+            },
             {
                 $set:{'lastSeen': time},
                 $inc: {'readNb': 1 }
             },
-            function(err, doc){
+            function(err, doc) {
                 console.log(doc);
-                if (err) return console.error(err);
-                if (doc === null) { console.log("Word does not fuckin exists") }
-                else {
-                    if(doc.lv === 0) lvUp(doc._id);
-                    if(doc.lv === 1 && doc.readNb >= 5) lvUp(doc._id);
-                    //if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) lvUp(doc._id);
-                    //if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) lvUp(doc._id);
-                    //if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) lvUp(doc._id);
-                    console.log("Word read");
 
-                    res.json(doc);
+                if (err) {
+                    return next(err);
                 }
+
+                if (doc === null) {
+                    return next({
+                        error: "Word does not exists",
+                        status: 400
+                    }) ;
+                }
+
+                if(doc.lv === 0) lvUp(doc._id);
+                if(doc.lv === 1 && doc.readNb >= 5) lvUp(doc._id);
+                //if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) lvUp(doc._id);
+                //if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) lvUp(doc._id);
+                //if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) lvUp(doc._id);
+                console.log("Word read");
+
+                res.json(doc);
             });
     },
 
-    translateWord: (req, res) => {
-        translate(req.params.word, {to: 'en'}).then(result => {
-            console.log(result.text);
-            res.json(result.text)
-
-        }).catch(err => {
-            console.error(err);
-        });
-
+    translateWord: (req, res, next) => {
+        translate(req.data.word, {to: 'en'})
+            .then(result => res.json(result.text))
+            .catch(err => next(err));
     },
 
-    succeedTest: (req, res) => {
-        var time = new Date()
-        req.models.srs.findOneAndUpdate({'_id': req.params.word_id},
-            {$inc: {'testSuccess': 1 }},
-            {$set:{'lastSeen': time}},
-            function(err, doc){
-                if (err) return console.error(err);
-                else {
-                    if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) req.models.srs.lvUp(doc._id);
-                    if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) req.models.srs.lvUp(doc._id);
-                    if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) req.models.srs.lvUp(doc._id);
-                    if(doc.lv === 5 && doc.testSuccess >= 6) req.models.srs.removeWordFromSrs(doc._id)    // the word fit the condition to leave the req.models.srs
-                    console.log("test succeeded");
-                    res.json({
-                        success: true
-                    });
+    succeedTest: (req, res, next) => {
+        const time = new Date();
+        req.models.srs.findOneAndUpdate(
+            {
+                _id: req.data.word_id
+            },
+            {
+                $inc: {'testSuccess': 1 },
+                $set: {'lastSeen': time }
+            },
+            function(err, doc) {
+                if (err) {
+                    return next(err);
                 }
+
+                if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) req.models.srs.lvUp(doc._id);
+                if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) req.models.srs.lvUp(doc._id);
+                if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) req.models.srs.lvUp(doc._id);
+                if(doc.lv === 5 && doc.testSuccess >= 6) req.models.srs.removeWordFromSrs(doc._id);    // the word fit the condition to leave the req.models.srs
+                console.log("test succeeded");
+
+                res.json({
+                    success: true
+                });
             });
     },
 
-    failTest: (req, res) => {
-        req.models.srs.findOneAndUpdate({'_id': req.params.word_id},
-            {$set: {'testSuccess': 0 }},
-            function(err, doc){
-                if (err) return console.error(err);
-                else {
-                    if(doc.lv >= 3) req.models.srs.lvDown(doc._id);
-                    console.log("test failed");
-
-                    res.json({
-                        success: true
-                    });
+    failTest: (req, res, next) => {
+        req.models.srs.findOneAndUpdate(
+            {
+                _id: req.data.word_id
+            },
+            {
+                $set: { 'testSuccess': 0 }
+            },
+            function(err, doc) {
+                if (err) {
+                    return next(err);
                 }
+
+                if(doc.lv >= 3) {
+                    req.models.srs.lvDown(doc._id);
+                }
+
+                console.log("test failed");
+
+                res.json({
+                    success: true
+                });
             });
     },
 
@@ -222,46 +286,72 @@ module.exports = {
         })
     }*/
 
-    addWordToSrs: (req, res) => {
-        req.models.srs.findOne({word: req.query.word, userId: req.params.user_id}, function (err, result){
-            if (err) return reject(err);
-            if (result === null){        //check that the word isn't already in the srs
+    addWordToSrs: (req, res, next) => {
+        req.models.srs.findOne({
+            word: req.data.word,
+            userId: req.data.user_id
+        }, function (err, result) {
+            if (err) {
+                return next(err);
+            }
+
+            if (result !== null) {
+                return next({
+                    error: "Error adding word... it is already in the srs",
+                    status: 400
+                });
+            }
+
+            //check that the word isn't already in the srs
+            if (!result) {
                 //console.log("word isn't in the srs... it will be added soon");
-                var currentWord = new req.models.srs({word: req.query.word, userId: req.params.user_id});
+                const currentWord = new req.models.srs({
+                    word: req.data.word,
+                    userId: req.data.user_id
+                });
+
                 currentWord.save(function (err, doc) {
-                    if (err) return console.error(err);
+                    if (err) {
+                        return next(err);
+                    }
                     else {
                         console.log("word added to srs");
                         return res.json({
-                            msg: `success adding words in the srs: ${doc.word}`
+                            msg: `success adding word in the srs: ${doc.word}`
                         });
                     }
                 })
             }
-            if (result !== null) console.log("Error adding word... it is already in the srs");
         })
     },
 
-    findWordsByLevel: (req, res) => {
-        const user_id = req.params.user_id.toString();
-        const level = parseInt(req.query.level, 10);
+    findWordsByLevel: (req, res, next) => {
+        const user_id = req.data.user_id.toString();
+        const level = parseInt(req.data.level);
+
         req.models.srs.aggregate([
             {
                 $match: {
-                    $and:
-                        [{userId: user_id},
-                            {lv: level}]
+                    $and: [
+                        { userId: user_id },
+                        { lv: level }
+                    ]
                 }
             }
-            ],
-            function (err, result) {
-                if (err) return reject(err);
-                if (result !== null) {
-                    console.log(result)
-                    return res.json(result);
-                }
-                if (result.length)
-                    console.log("No words level " + req.query.level + " found for this user")
-            });
+        ], function (err, result) {
+            if (err) {
+                return next(err);
+            }
+
+            if (result.length === 0) {
+                return next({
+                    error: "No words level " + req.data.level + " found for this user",
+                    status: 400
+                });
+            }
+
+            console.log(result);
+            return res.json(result);
+        });
     }
 };

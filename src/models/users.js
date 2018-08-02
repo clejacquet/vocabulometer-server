@@ -9,7 +9,6 @@ const newWordsPerDay = require('./aggregations/newWordsPerDay');
 const recentNewWords = require('./aggregations/recentNewWords');
 const computeVocabulary = require('./aggregations/computeVocabulary');
 
-
 module.exports = (mongoose, models) => {
 
 	const userSchema = new mongoose.Schema({
@@ -42,7 +41,8 @@ module.exports = (mongoose, models) => {
                     cb(null, {
                         _id: res._id,
                         name: res.name,
-                        isNew: true
+                        isNewEn: true,
+                        isNewJp: true
                     });
                 });
             }).catch((err) => {
@@ -197,14 +197,12 @@ module.exports = (mongoose, models) => {
 	};
 
 	userSchema.statics.getQuiz = function(language, cb) {
-        fs.readFile('assets/list-questions.json', 'utf8', (err, file) => {
+        fs.readFile(models.languages[language].format('assets/list-questions') + '.json', 'utf8', (err, file) => {
             if (err) {
                 return cb(err);
             }
 
-            const listQuestions = JSON.parse(file);
-
-            const questions = listQuestions.map(list => _.sample(list, 3));
+            const questions = JSON.parse(file);
 
             cb(undefined, questions);
         });
