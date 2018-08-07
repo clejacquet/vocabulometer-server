@@ -43,6 +43,9 @@ module.exports = (passport) => {
     router.get('/readword/:word_id', srslib.readWord)
     // translate a word from the "src" language to english
     router.get('/translate/:word', srslib.translateWord)
+    // find synonyms of the word given in parameter
+    router.get('/synonym/:word', srslib.findSynonym)
+
 
     // succeed the test for a word (updates "testSuccess" and possibly "lv")
     router.post('/test/succeed/:word_id', srslib.succeedTest)

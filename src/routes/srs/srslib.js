@@ -1,7 +1,9 @@
 const translate = require('google-translate-api');
+const thesaurus = require('powerthesaurus-api');
 
 
 // Time spacing for srs repetition
+// this time is expressed in hours
 const S0 = 1/3600,
       S1 = 1/3600 * 10,
       S2 = 1/3600 * 600,
@@ -9,8 +11,13 @@ const S0 = 1/3600,
       S4 = 72,
       S5 = 102;
 
-const SPACING = [S0, S1, S2, S3, S4, S5];
-const SRS_MAX_SIZE = 50;
+const SPACING = [S0, S1, S2, S3, S4, S5];       // spacing for the repetition: each spacing correspond to the following levels
+const LEVEL = [0, 1, 2, 3, 4, 5];               // Available levels
+const SUCCESS_NUMBER = 2;                       // number of success needed to lv up
+
+//var learningArray = [ [], [], [], [], [], [] ]; // Eeach list will be filled with words to learn of the corresponding level
+
+const SRS_MAX_SIZE = 50;                        // can be used to set a limit to the SRS size (for a specific user)
 
 
 module.exports = {
@@ -20,24 +27,18 @@ module.exports = {
             { $match: { userId: req.params.user_id  } },
             { $group: { _id: null, count: { $sum: 1 }}}], function (err, result) {
             if (err) return console.log(err);
-            if (!result.length) console.log("user does not exists")
-            else { console.log("heyyy");
-                res.json(result[0].count)}
+            if (!result.length) console.log("this user does not exists")
+            else {res.json(result[0].count)}
         })
     },
 
     findWordIdByUserId: (req, res) => { //return word_id with word and userid
-        console.log("enter")
         req.models.srs.aggregate( [
             { $match: { userId: req.params.user_id  } },
             { $match: { word: req.params.word } } ], function (err, result) {
             if (err) console.log(err);
             if (result.length){
-                console.log("res enter")
                 console.log(result)
-                //word_id = result[0]._id;
-                //console.log("word _id: " + word_id);
-                //return result[0]._id;
                 res.json(result[0]._id)
             }
             if(!result.length) {
@@ -69,13 +70,10 @@ module.exports = {
         req.models.srs.findAllSrsWords(req.params.user_id)
             .then( result => {
                 if(result.length){
-                    console.log("hey")
                     for(let i = 0; i < result.length; i++){
-                        if(req.models.srs.timeDiff(result[i].lastSeen, currentDate) > time*3600*1000){
+                        if(req.models.srs.timeDiff(result[i].lastSeen, currentDate) > time*3600*1000){ // we change hours into milliseconds
                             //console.log(timeDiff(res[i].lastSeen, currentDate));
                             idList.push(result[i])
-                            console.log(result[i])
-                            //console.log(res[i].word)
                         }
                     }
                     if(!idList.length) console.log("No remaining words last seen");
@@ -86,9 +84,8 @@ module.exports = {
     },
 
     findWordsToLearn: (req, res) => {
-        var learningArray = [ [], [], [], [], [], [] ];
-
-        for(let i = 0; i < 6; i++){
+      var learningArray = [ [], [], [], [], [], [] ]
+        for(let i = 0; i < LEVEL.length; i++){
             req.models.srs.findWordsByLastSeen(req.params.user_id, SPACING[i])
                 .then( result => {
                     console.log("in then")
@@ -97,18 +94,18 @@ module.exports = {
                             learningArray[i].push(result[j]);
                         }
                     }
-                    if(i === 5) res.json(learningArray);
+                    if(i === LEVEL[LEVEL.length - 1]) res.json(learningArray);
                 })
         }
         if(!learningArray.length) {
-            console.log("No remaining words to learn");
+            //console.log("No remaining words to learn");
             res.json("No remaining words to learn")
         }
     },
 
     removeWordFromSrs: (req, res) => {
         req.models.srs.findOneAndRemove({ _id: req.params.word_id }, function(err, doc){
-            if(err) console.log("the word you are removing doesn't exists")
+            if(err) console.log(err)
             if(doc) {
                 console.log("Word removed");
                 res.json({
@@ -131,13 +128,12 @@ module.exports = {
                 if (err) return console.error(err);
                 if (doc === null) { console.log("Word does not fuckin exists") }
                 else {
-                    if(doc.lv === 0) lvUp(doc._id);
-                    if(doc.lv === 1 && doc.readNb >= 5) lvUp(doc._id);
+                    //if(doc.lv === 0) lvUp(doc._id);
+                    //if(doc.lv === 1 && doc.readNb >= 5) lvUp(doc._id);
                     //if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) lvUp(doc._id);
                     //if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) lvUp(doc._id);
                     //if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) lvUp(doc._id);
                     console.log("Word read");
-
                     res.json(doc);
                 }
             });
@@ -158,19 +154,22 @@ module.exports = {
         var time = new Date()
         req.models.srs.findOneAndUpdate({'_id': req.params.word_id},
             {$inc: {'testSuccess': 1 }},
-            {$set:{'lastSeen': time}},
+            {$set: {'lastSeen': time }},
             function(err, doc){
                 if (err) return console.error(err);
                 else {
-                    if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) req.models.srs.lvUp(doc._id);
-                    if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) req.models.srs.lvUp(doc._id);
-                    if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) req.models.srs.lvUp(doc._id);
-                    if(doc.lv === 5 && doc.testSuccess >= 6) req.models.srs.removeWordFromSrs(doc._id)    // the word fit the condition to leave the req.models.srs
-                    console.log("test succeeded");
-                    res.json({
-                        success: true
-                    });
-                }
+                  for(let i = 0; i < LEVEL.length; i++) { // Loop on every possible level
+                    if(doc.lv === LEVEL[LEVEL.length - 1] && doc.testSuccess >= SUCCESS_NUMBER) { //word reached the maximum level: he is removed from the SRS
+                      req.models.srs.removeWordFromSrs(doc._id);
+                      break;
+                    }
+                    if(doc.lv === i && doc.testSuccess >= SUCCESS_NUMBER) req.models.srs.lvUp(doc._id);
+                  }
+                  console.log("test succeeded");
+                  res.json({
+                      success: true
+                  });
+              }
             });
     },
 
@@ -180,12 +179,11 @@ module.exports = {
             function(err, doc){
                 if (err) return console.error(err);
                 else {
-                    if(doc.lv >= 3) req.models.srs.lvDown(doc._id);
-                    console.log("test failed");
-
-                    res.json({
-                        success: true
-                    });
+                  req.models.srs.lvDown(doc._id);
+                  console.log("test failed");
+                  res.json({
+                      success: true
+                  });
                 }
             });
     },
@@ -263,5 +261,21 @@ module.exports = {
                 if (result.length)
                     console.log("No words level " + req.query.level + " found for this user")
             });
+    },
+
+    findSynonym: (req, res) => {
+      const word = req.params.word;
+      thesaurus(word)
+      .then(results => {
+        console.log(results[0])
+        res.json(results[0].word)
+      })
+      .catch(error => {
+        console.error(error)
+        res.json(error)
+      })
     }
+
+
+
 };

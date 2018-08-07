@@ -24,8 +24,8 @@ module.exports = (mongoose, models) => {
             function(err, doc){
                 if (err) return console.error(err);
                 else {
-                    if(doc.lv === 0) this.lvUp(doc._id);
-                    if(doc.lv === 1 && doc.readNb >= 5) this.lvUp(doc._id);
+                    //if(doc.lv === 0) this.lvUp(doc._id);
+                    //if(doc.lv === 1 && doc.readNb >= 5) this.lvUp(doc._id);
                     //if(doc.lv === 2 && doc.readNb >= 12 && doc.testSuccess >= 1) lvUp(doc._id);
                     //if(doc.lv === 3 && doc.readNb >= 18 && doc.testSuccess >= 2) lvUp(doc._id);
                     //if(doc.lv === 4 && doc.readNb >= 25 && doc.testSuccess >= 5) lvUp(doc._id);
@@ -55,8 +55,11 @@ module.exports = (mongoose, models) => {
         this.findOne({'_id': id},function(err,doc){ //mettre le findone and update dans le callback
             if(err) return console.error(err)
             else newlv = doc.lv + 1;
-        },  this.findOneAndUpdate({'_id': id},
-            {$inc: {'lv': 1 }},
+         }, this.findOneAndUpdate({'_id': id},
+            {
+                $set:{'testSuccess': 0},
+                $inc: {'lv': 1 }
+            },
             function(err, doc){
                 if (err) return console.error(err);
                 else {
