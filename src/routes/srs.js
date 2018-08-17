@@ -45,6 +45,8 @@ module.exports = (passport) => {
     router.get('/translate/:word', srslib.translateWord)
     // find synonyms of the word given in parameter
     router.get('/synonym/:word', srslib.findSynonym)
+    // find definition of the word given in parameter
+    router.get('/definition/:word', srslib.findDefinition)
 
 
     // succeed the test for a word (updates "testSuccess" and possibly "lv")

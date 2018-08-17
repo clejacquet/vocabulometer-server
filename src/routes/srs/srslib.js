@@ -274,6 +274,18 @@ module.exports = {
         console.error(error)
         res.json(error)
       })
+    },
+
+    findDefinition: (req, res) => {
+      const word = req.params.word.toString();
+      dictionary.define(word)
+      .then( doc => {
+        res.json(doc[0].defenition)
+      })
+      .catch(error => {
+        console.error(error)
+        res.json(error)
+      })
     }
 
 
