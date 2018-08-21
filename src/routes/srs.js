@@ -1,5 +1,4 @@
 const express = require('express');
-const check = require('../policies/check');
 
 const router = express.Router({
     caseSensitive: false,
@@ -11,168 +10,49 @@ const srslib = require('./srs/srslib');
 
 
 module.exports = (passport) => {
-    router.get('/srs/getsize/:user_id',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            }
-        }),
-        srslib.getSrsSize);
+    router.get('/', function(req, res) {
 
-    router.get('/srs/getallwords/:user_id',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            }
-        }),
-        srslib.findAllSrsWords);
+        res.setHeader('Content-Type', 'text/plain');
 
-    router.post('/srs/addword/:user_id',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            },
-            word: {
-                in: 'query',
-                exists: true,
-                errorMessage: 'No word parameter provided',
-            }
-        }),
-        srslib.addWordToSrs);
+        res.send('Vous êtes à l\'accueil, que puis-je pour vous ?');
 
-    router.delete('/srs/delword/:word_id',
-        passport.isLoggedIn,
-        check.schema({
-            word_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No word id parameter provided',
-            }
-        }),
-        srslib.removeWordFromSrs);
+    });
+    // return the number of words in a user's SRS
+    router.get('/srs/getsize/:user_id', srslib.getSrsSize)
+    // return all the words in a user's SRS
+    router.get('/srs/getallwords/:user_id', srslib.findAllSrsWords)
+    // add a word in an user's SRS
+    router.post('/srs/addword/:user_id', srslib.addWordToSrs)
+    // delete a word from the SRS of an user
+    router.delete('/srs/delword/:word_id', srslib.removeWordFromSrs)
 
 
-
-    router.get('/findwordidbyuserid/:user_id/:word',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            },
-            word: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No word parameter provided',
-            }
-        }),
-        srslib.findWordIdByUserId);
-
-    router.get('/findwordsbylastseen/:user_id/:time',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            },
-            time: {
-                in: 'params',
-                errorMessage: 'No time parameter provided',
-                isInt: true,
-                custom: { options: (value) => parseInt(value) >= 0 },
-                sanitizer: value => parseInt(value)
-            }
-        }),
-        srslib.findWordsByLastSeen);
-
-    router.get('/findwordstolearn/:user_id',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            }
-        }),
-        srslib.findWordsToLearn);
-
-    router.get('/findwordsbylevel/:user_id/',
-        passport.isLoggedIn,
-        check.schema({
-            user_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No user Id parameter provided',
-            },
-            level: {
-                in: 'query',
-                errorMessage: 'No level parameter provided',
-                isInt: true,
-                custom: { options: (value) => parseInt(value) >= 0 },
-                sanitizer: value => parseInt(value)
-            }
-        }),
-        srslib.findWordsByLevel);
-// :time -> req.query
-//router.get('/findwordsbylastseen/:user_id/:time', srslib.findAllSrsWords, srslib.findWordsByLastSeen) //find all words that haven't be since since timeLastSeen
+    // return the id of a word given word and user_id
+    router.get('/findwordidbyuserid/:user_id/:word', srslib.findWordIdByUserId)
+    // return every word that heven't been seen since <time>
+    router.get('/findwordsbylastseen/:user_id/:time', srslib.findWordsByLastSeen)
+    // return the words that the user has to learn given the time last seen matching the specified spacing
+    router.get('/findwordstolearn/:user_id', srslib.findWordsToLearn)
+    // return words of an user's SRS with the specified level
+    router.get('/findwordsbylevel/:user_id/', srslib.findWordsByLevel)
+    // :time -> req.query
+    //app.get('/findwordsbylastseen/:user_id/:time', srslib.findAllSrsWords, srslib.findWordsByLastSeen) //find all words that haven't be since since timeLastSeen
 
 
-
-    router.post('/readword/:word_id',
-        passport.isLoggedIn,
-        check.schema({
-            word_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No word id parameter provided',
-            }
-        }),
-        srslib.readWord);
-
-    router.get('/translate/:word',
-        passport.isLoggedIn,
-        check.schema({
-            word: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No word parameter provided',
-            }
-        }),
-        srslib.translateWord);
+    // read the specified word (updates "readNb" and "last seen" fields (and also "lv" in some cases))
+    router.get('/readword/:word_id', srslib.readWord)
+    // translate a word from the "src" language to english
+    router.get('/translate/:word', srslib.translateWord)
+    // find synonyms of the word given in parameter
+    router.get('/synonym/:word', srslib.findSynonym)
+    // find definition of the word given in parameter
+    router.get('/definition/:word', srslib.findDefinition)
 
 
-    router.post('/test/succeed/:word_id',
-        passport.isLoggedIn,
-        check.schema({
-            word_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No word id parameter provided',
-            }
-        }),
-        srslib.succeedTest);
+    // succeed the test for a word (updates "testSuccess" and possibly "lv")
+    router.post('/test/succeed/:word_id', srslib.succeedTest)
+    // fail the test for a word (updates "testSuccess" and possibly "lv")
+    router.post('/test/fail/:word_id', srslib.failTest)
 
-    router.post('/test/fail/:word_id',
-        passport.isLoggedIn,
-        check.schema({
-            word_id: {
-                in: 'params',
-                exists: true,
-                errorMessage: 'No word id parameter provided',
-            }
-        }),
-        srslib.failTest);
-    
     return router;
-};
+}
