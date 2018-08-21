@@ -1,5 +1,5 @@
 const translate = require('google-translate-api');
-const thesaurus = require('powerthesaurus-api');
+const dictionary = require('owlbot-dictionary');
 
 
 // Time spacing for srs repetition
@@ -140,7 +140,7 @@ module.exports = {
     },
 
     translateWord: (req, res) => {
-        translate(req.params.word, {from: req.query.src, to: 'en'}).then(result => {
+        translate(req.params.word, {from: req.query.src, to: req.query.dst}).then(result => {
             console.log(result.text);
             res.json(result.text)
 

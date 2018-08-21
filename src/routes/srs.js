@@ -40,7 +40,7 @@ module.exports = (passport) => {
 
 
     // read the specified word (updates "readNb" and "last seen" fields (and also "lv" in some cases))
-    router.get('/readword/:word_id', srslib.readWord)
+    router.post('/readword/:word_id', srslib.readWord)
     // translate a word from the "src" language to english
     router.get('/translate/:word', srslib.translateWord)
     // find synonyms of the word given in parameter
