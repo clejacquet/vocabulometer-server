@@ -69,13 +69,22 @@ module.exports = (mongoose, models) => {
 
     };
 
-    SrsSchema.statics.lvDown = function(id) {
-        this.findOneAndUpdate({'_id': id},
-            {$inc: {'lv': -1 }},
-            function(err, doc){
-                if (err) return console.error(err);
-                else console.log("Word level down");
-            });
+    SrsSchema.statics.lvDown = function(doc) {
+        return new Promise((resolve, reject) => {
+            if (doc.lv === 0) {
+                return resolve("Word is already lv 0")
+            }
+
+            this.findOneAndUpdate({'_id': doc._id},
+                {$inc: {'lv': -1}},
+                function (err, doc) {
+                    if (err) {
+                        return reject(err);
+                    }
+
+                    resolve("Word level down");
+                });
+        });
     };
 
     SrsSchema.statics.findAllSrsWords = function(userId){ //return all words of a specific user
@@ -109,6 +118,21 @@ module.exports = (mongoose, models) => {
             }
         }
         return diff;
+    };
+
+    SrsSchema.statics.removeWordFromSrs = function (wordId) {
+        return new Promise((resolve, reject) => {
+            this.findOneAndRemove({ _id: wordId }, function(err, doc){
+                if(err) console.log(err)
+                if(doc) {
+                    console.log("Word removed");
+                    resolve({
+                        success: true
+                    });
+                }
+                else { reject("Word you want to remove doesn't exists") }
+            })
+        });
     };
 
     SrsSchema.statics.findWordsByLastSeen = function (user_id, time) { //find all words that haven't be since since timeLastSeen

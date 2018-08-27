@@ -13,7 +13,7 @@ const S0 = 1/3600,
 
 const SPACING = [S0, S1, S2, S3, S4, S5];       // spacing for the repetition: each spacing correspond to the following levels
 const LEVEL = [0, 1, 2, 3, 4, 5];               // Available levels
-const SUCCESS_NUMBER = 2;                       // number of success needed to lv up
+const SUCCESS_NUMBER = 0;                       // number of success needed to lv up
 
 //var learningArray = [ [], [], [], [], [], [] ]; // Eeach list will be filled with words to learn of the corresponding level
 
@@ -104,16 +104,9 @@ module.exports = {
     },
 
     removeWordFromSrs: (req, res) => {
-        req.models.srs.findOneAndRemove({ _id: req.params.word_id }, function(err, doc){
-            if(err) console.log(err)
-            if(doc) {
-                console.log("Word removed");
-                res.json({
-                    success: true
-                });
-            }
-            else { console.log("Word you want to remove doesn't exists") }
-        })
+        req.models.srs.removeWordFromSrs(req.params.word_id)
+            .then(result => res.json(result))
+            .catch(err => res.status(500).json(err));
     },
 
     readWord: (req, res) => {
@@ -152,39 +145,66 @@ module.exports = {
 
     succeedTest: (req, res) => {
         var time = new Date()
-        req.models.srs.findOneAndUpdate({'_id': req.params.word_id},
-            {$inc: {'testSuccess': 1 }},
-            {$set: {'lastSeen': time }},
+        req.models.srs.findOneAndUpdate(
+            {
+                _id: req.params.word_id
+            },
+            {
+                $inc: {'testSuccess': 1 },
+                $set: {'lastSeen': time }
+            },
             function(err, doc){
-                if (err) return console.error(err);
-                else {
-                  for(let i = 0; i < LEVEL.length; i++) { // Loop on every possible level
-                    if(doc.lv === LEVEL[LEVEL.length - 1] && doc.testSuccess >= SUCCESS_NUMBER) { //word reached the maximum level: he is removed from the SRS
-                      req.models.srs.removeWordFromSrs(doc._id);
-                      break;
+                if (err) {
+                    return res.status(500).json(err);
+                }
+
+                if (!doc) {
+                    return res.status(404).json({ msg: 'Word not found' });
+                }
+
+                    if(doc.testSuccess >= SUCCESS_NUMBER) {
+                        if(doc.lv === LEVEL[LEVEL.length - 1]) { //word reached the maximum level: he is removed from the SRS
+                            return req.models.srs.removeWordFromSrs(doc._id)
+                                .then(doc => {
+                                    res.json({ msg: "Word reached maximum SRS level, removed" });
+                                })
+                                .catch(err => res.status(500).json(err));
+                        }
+                        req.models.srs.lvUp(doc._id);
+
+                        console.log("test succeeded");
+                        res.json({
+                            success: true
+                        });
+                    } else {
+                        console.log("test succeeded");
+                        res.json({
+                            success: true
+                        });
                     }
-                    if(doc.lv === i && doc.testSuccess >= SUCCESS_NUMBER) req.models.srs.lvUp(doc._id);
-                  }
-                  console.log("test succeeded");
-                  res.json({
-                      success: true
-                  });
-              }
+
             });
     },
 
     failTest: (req, res) => {
-        req.models.srs.findOneAndUpdate({'_id': req.params.word_id},
-            {$set: {'testSuccess': 0 }},
-            function(err, doc){
-                if (err) return console.error(err);
-                else {
-                  req.models.srs.lvDown(doc._id);
-                  console.log("test failed");
-                  res.json({
-                      success: true
-                  });
+        req.models.srs.findOneAndUpdate({
+                '_id': req.params.word_id
+            },
+            {
+                $set: {'testSuccess': 0 }
+            },
+            function(err, doc) {
+                if (err) {
+                    return res.status(500).json(err);
                 }
+
+                if (!doc) {
+                    return res.status(404).json({ msg: 'Word not found' });
+                }
+
+                  req.models.srs.lvDown(doc)
+                      .then(result => res.json(result))
+                      .catch(err => res.status(500).json(err));
             });
     },
 

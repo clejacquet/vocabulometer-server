@@ -50,8 +50,6 @@ module.exports = (userId, languageFormatter, count) => {
             $sort: {
                 _id: -1
             }
-        }, {
-            $limit: count
         }
     ]
 };

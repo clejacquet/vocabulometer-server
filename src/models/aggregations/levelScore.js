@@ -87,12 +87,12 @@ module.exports = (userId, languageFormatter) => {
                         }
                     },
                     {
+                        $unwind: "$word"
+                    },
+                    {
                         $project: {
                             word: 1
                         }
-                    },
-                    {
-                        $unwind: "$word"
                     },
                     {
                         $group: { _id: "$word.word", count: { "$sum": 1 }}
